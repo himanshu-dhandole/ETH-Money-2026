@@ -24,8 +24,23 @@ import {
   SearchIcon,
 } from "@/components/icons";
 import { Logo } from "@/components/icons";
+import { ConnectButton } from "thirdweb/react";
+import { createWallet } from "thirdweb/wallets";
+import { client } from "@/config/thirdwebConfig";
+import { useTheme } from "@heroui/use-theme";
+
+const wallets = [
+  createWallet("io.metamask"),
+  createWallet("com.coinbase.wallet"),
+  createWallet("me.rainbow"),
+  createWallet("io.rabby"),
+  createWallet("io.zerion.wallet"),
+];
 
 export const Navbar = () => {
+
+    const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
   const searchInput = (
     <Input
       aria-label="Search"
@@ -57,7 +72,7 @@ export const Navbar = () => {
             href="/"
           >
             <Logo />
-            <p className="font-bold text-inherit">ACME</p>
+            <p className="font-bold text-inherit">AURA FARM</p>
           </Link>
         </NavbarBrand>
         <div className="hidden lg:flex gap-4 justify-start ml-2">
@@ -94,18 +109,39 @@ export const Navbar = () => {
           </Link>
           <ThemeSwitch />
         </NavbarItem>
-        <NavbarItem className="hidden lg:flex">{searchInput}</NavbarItem>
         <NavbarItem className="hidden md:flex">
-          <Button
-            isExternal
-            as={Link}
-            className="text-sm font-normal text-default-600 bg-default-100"
-            href={siteConfig.links.sponsor}
-            startContent={<HeartFilledIcon className="text-danger" />}
-            variant="flat"
-          >
-            Sponsor
-          </Button>
+           <ConnectButton
+                client={client}
+                wallets={wallets}
+                theme={isDark ? "dark" : "light"}
+                connectButton={{
+                  label: "Connect",
+                  style: {
+                    all: "unset",
+                    backgroundColor: isDark
+                      ? "oklch(0.14 0.035 280)"
+                      : "oklch(0.99 0.008 280)",
+                    borderRadius: "10px",
+                    fontWeight: "500",
+                    transition: "all 0.25s ease",
+                    color: isDark
+                      ? "oklch(0.95 0.02 260)"
+                      : "oklch(0.12 0.03 280)",
+                    padding: "0.45rem 1rem",
+                    cursor: "pointer",
+                    border: isDark
+                      ? "1px solid oklch(0.98 0.025 260 / 15%)"
+                      : "1px solid oklch(0.86 0.025 270)",
+                    boxShadow: isDark
+                      ? "0 0 10px oklch(0.75 0.26 285 / 18%)"
+                      : "0 0 8px oklch(0.58 0.24 285 / 12%)",
+                  },
+                }}
+                connectModal={{
+                  title: "Select a Wallet",
+                  showThirdwebBranding: false,
+                }}
+              />
         </NavbarItem>
       </NavbarContent>
 
@@ -117,28 +153,7 @@ export const Navbar = () => {
         <NavbarMenuToggle />
       </NavbarContent>
 
-      <NavbarMenu>
-        {searchInput}
-        <div className="mx-4 mt-2 flex flex-col gap-2">
-          {siteConfig.navMenuItems.map((item, index) => (
-            <NavbarMenuItem key={`${item}-${index}`}>
-              <Link
-                color={
-                  index === 2
-                    ? "primary"
-                    : index === siteConfig.navMenuItems.length - 1
-                      ? "danger"
-                      : "foreground"
-                }
-                href="#"
-                size="lg"
-              >
-                {item.label}
-              </Link>
-            </NavbarMenuItem>
-          ))}
-        </div>
-      </NavbarMenu>
+     
     </HeroUINavbar>
   );
 };
