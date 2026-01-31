@@ -1,29 +1,9 @@
-import { Button } from "@heroui/button";
-import { Kbd } from "@heroui/kbd";
+"use client";
+import React from "react";
 import { Link } from "@heroui/link";
-import { Input } from "@heroui/input";
-import {
-  Navbar as HeroUINavbar,
-  NavbarBrand,
-  NavbarContent,
-  NavbarItem,
-  NavbarMenuToggle,
-  NavbarMenu,
-  NavbarMenuItem,
-} from "@heroui/navbar";
-import { link as linkStyles } from "@heroui/theme";
-import clsx from "clsx";
-
-import { siteConfig } from "@/config/site";
 import { ThemeSwitch } from "@/components/theme-switch";
-import {
-  TwitterIcon,
-  GithubIcon,
-  DiscordIcon,
-  HeartFilledIcon,
-  SearchIcon,
-} from "@/components/icons";
-import { Logo } from "@/components/icons";
+import { Brain } from "lucide-react";
+import { siteConfig } from "@/config/site";
 import { ConnectButton } from "thirdweb/react";
 import { createWallet } from "thirdweb/wallets";
 import { client } from "@/config/thirdwebConfig";
@@ -37,123 +17,81 @@ const wallets = [
   createWallet("io.zerion.wallet"),
 ];
 
-export const Navbar = () => {
+const NavLink = ({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) => (
+  <Link
+    href={href}
+    className="text-sm font-medium text-gray-400 hover:text-[#13ec5b] transition-all duration-300 relative group"
+  >
+    {children}
+    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#13ec5b] transition-all duration-300 group-hover:w-full" />
+  </Link>
+);
 
-    const { theme, setTheme } = useTheme();
+export const Navbar = () => {
+  const { theme } = useTheme();
   const isDark = theme === "dark";
-  const searchInput = (
-    <Input
-      aria-label="Search"
-      classNames={{
-        inputWrapper: "bg-default-100",
-        input: "text-sm",
-      }}
-      endContent={
-        <Kbd className="hidden lg:inline-block" keys={["command"]}>
-          K
-        </Kbd>
-      }
-      labelPlacement="outside"
-      placeholder="Search..."
-      startContent={
-        <SearchIcon className="text-base text-default-400 pointer-events-none flex-shrink-0" />
-      }
-      type="search"
-    />
-  );
 
   return (
-    <HeroUINavbar maxWidth="xl" position="sticky">
-      <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
-        <NavbarBrand className="gap-3 max-w-fit">
-          <Link
-            className="flex justify-start items-center gap-1"
-            color="foreground"
-            href="/"
-          >
-            <Logo />
-            <p className="font-bold text-inherit">AURA FARM</p>
-          </Link>
-        </NavbarBrand>
-        <div className="hidden lg:flex gap-4 justify-start ml-2">
+    <nav className="fixed top-0 w-full z-[100] border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl h-16">
+      <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
+        {/* Brand */}
+        <Link href="/" className="flex items-center gap-2 group">
+          <div className="p-2 rounded-xl bg-[#13ec5b]/10 group-hover:bg-[#13ec5b]/20 transition-all duration-300">
+            <Brain className="text-[#13ec5b] w-6 h-6 animate-pulse" />
+          </div>
+          <span className="font-bold tracking-tighter text-xl text-white">
+            Aura<span className="text-[#13ec5b]">Farm</span>
+          </span>
+        </Link>
+
+        {/* Navigation Links */}
+        <div className="hidden md:flex items-center gap-10">
           {siteConfig.navItems.map((item) => (
-            <NavbarItem key={item.href}>
-              <Link
-                className={clsx(
-                  linkStyles({ color: "foreground" }),
-                  "data-[active=true]:text-primary data-[active=true]:font-medium",
-                )}
-                color="foreground"
-                href={item.href}
-              >
-                {item.label}
-              </Link>
-            </NavbarItem>
+            <NavLink key={item.href} href={item.href}>
+              {item.label}
+            </NavLink>
           ))}
         </div>
-      </NavbarContent>
 
-      <NavbarContent
-        className="hidden sm:flex basis-1/5 sm:basis-full"
-        justify="end"
-      >
-        <NavbarItem className="hidden sm:flex gap-2">
-          <Link isExternal href={siteConfig.links.twitter} title="Twitter">
-            <TwitterIcon className="text-default-500" />
-          </Link>
-          <Link isExternal href={siteConfig.links.discord} title="Discord">
-            <DiscordIcon className="text-default-500" />
-          </Link>
-          <Link isExternal href={siteConfig.links.github} title="GitHub">
-            <GithubIcon className="text-default-500" />
-          </Link>
+        {/* Actions */}
+        <div className="flex items-center gap-6">
           <ThemeSwitch />
-        </NavbarItem>
-        <NavbarItem className="hidden md:flex">
-           <ConnectButton
-                client={client}
-                wallets={wallets}
-                theme={isDark ? "dark" : "light"}
-                connectButton={{
-                  label: "Connect",
-                  style: {
-                    all: "unset",
-                    backgroundColor: isDark
-                      ? "oklch(0.14 0.035 280)"
-                      : "oklch(0.99 0.008 280)",
-                    borderRadius: "10px",
-                    fontWeight: "500",
-                    transition: "all 0.25s ease",
-                    color: isDark
-                      ? "oklch(0.95 0.02 260)"
-                      : "oklch(0.12 0.03 280)",
-                    padding: "0.45rem 1rem",
-                    cursor: "pointer",
-                    border: isDark
-                      ? "1px solid oklch(0.98 0.025 260 / 15%)"
-                      : "1px solid oklch(0.86 0.025 270)",
-                    boxShadow: isDark
-                      ? "0 0 10px oklch(0.75 0.26 285 / 18%)"
-                      : "0 0 8px oklch(0.58 0.24 285 / 12%)",
-                  },
-                }}
-                connectModal={{
-                  title: "Select a Wallet",
-                  showThirdwebBranding: false,
-                }}
-              />
-        </NavbarItem>
-      </NavbarContent>
+          <div className="h-6 w-[1px] bg-white/10 hidden sm:block" />
 
-      <NavbarContent className="sm:hidden basis-1 pl-4" justify="end">
-        <Link isExternal href={siteConfig.links.github}>
-          <GithubIcon className="text-default-500" />
-        </Link>
-        <ThemeSwitch />
-        <NavbarMenuToggle />
-      </NavbarContent>
-
-     
-    </HeroUINavbar>
+          <ConnectButton
+            client={client}
+            wallets={wallets}
+            theme={isDark ? "dark" : "light"}
+            connectButton={{
+              label: "Launch App",
+              style: {
+                all: "unset",
+                backgroundColor: "#13ec5b",
+                color: "#050505",
+                borderRadius: "12px",
+                fontWeight: "800",
+                fontSize: "12px",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                padding: "0.6rem 1.25rem",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                boxShadow: "0 4px 20px rgba(19,236,91,0.2)",
+              },
+            }}
+            connectModal={{
+              title: "Connect to Aura",
+              showThirdwebBranding: false,
+            }}
+          />
+        </div>
+      </div>
+    </nav>
   );
 };

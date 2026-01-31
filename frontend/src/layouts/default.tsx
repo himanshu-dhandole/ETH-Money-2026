@@ -1,6 +1,6 @@
 import { Link } from "@heroui/link";
 
-import  {Navbar}  from "@/components/navbar";
+import { Navbar } from "@/components/navbar";
 
 export default function DefaultLayout({
   children,
@@ -10,7 +10,7 @@ export default function DefaultLayout({
   return (
     <div className="flex flex-col h-screen">
       <Navbar />
-      <main className=" mx-auto w-full flex-grow -pt-16">
+      <main className=" mx-auto w-full flex-grow pt-16">
         {children}
       </main>
       <footer className="w-full flex items-center justify-center py-3">
