@@ -5,20 +5,29 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import "../interfaces/IVitualUSDC.sol";
+import "../interfaces/IVirtualUSDC.sol";
 
-contract StrategyFactory is ERC4626, Ownable, ReentrancyGuard {
+abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
+
+    error OnlyVault();
+    error InvalidVault();
+    error InvalidAPY();
+    error InvalidPeriod();
+    error MinFactorTooHigh();
+    error RangeTooWide();
 
     address public vault;
     uint256 public lastHarvest;
     uint256 public totalHarvested;
-    uint256 public baseAPY = 2000;
+    uint256 public baseAPY;
     uint256 public yieldPeriod = 365 days;
     uint256 public lastYieldUpdate;
     uint256 public accumulatedYield;
     uint256 public lastRandomFactor = 100;
+
+    uint256 public immutable minRandomFactor;
+    uint256 public immutable randomRange;
 
     event Harvested(uint256 amount, uint256 timestamp);
     event YieldGenerated(uint256 amount);
@@ -27,39 +36,40 @@ contract StrategyFactory is ERC4626, Ownable, ReentrancyGuard {
     event YieldPeriodUpdated(uint256 oldPeriod, uint256 newPeriod);
 
     modifier onlyVault() {
-        require(msg.sender == vault, "Only vault");
+        if (msg.sender != vault) revert OnlyVault();
         _;
     }
 
     constructor(
-        IERC20 _asset
-    )
-        ERC4626(_asset)
-        ERC20("Leveraged Yield Shares", "sLEV")
-        Ownable(msg.sender)
-    {
+        IERC20 _asset,
+        string memory _name,
+        string memory _symbol,
+        uint256 _baseAPY,
+        uint256 _minRandomFactor,
+        uint256 _randomRange,
+        address _owner
+    ) ERC4626(_asset) ERC20(_name, _symbol) Ownable(_owner) {
+        require(_minRandomFactor <= 200, "min too high");
+        require(_randomRange <= 100, "range too wide");
+
+        baseAPY = _baseAPY;
+        minRandomFactor = _minRandomFactor;
+        randomRange = _randomRange;
         lastYieldUpdate = block.timestamp;
     }
 
     function setVault(address _vault) external onlyOwner {
-        require(_vault != address(0), "Invalid vault");
+        if (_vault == address(0)) revert InvalidVault();
         address oldVault = vault;
         vault = _vault;
         emit VaultUpdated(oldVault, _vault);
     }
 
     function setBaseAPY(uint256 _baseAPY) external onlyOwner {
-        require(_baseAPY > 0 && _baseAPY <= 10000, "APY out of range");
+        if (_baseAPY == 0 || _baseAPY > 10000) revert InvalidAPY();
         uint256 oldAPY = baseAPY;
         baseAPY = _baseAPY;
         emit BaseAPYUpdated(oldAPY, _baseAPY);
-    }
-
-    function setYieldPeriod(uint256 _yieldPeriod) external onlyOwner {
-        require(_yieldPeriod > 0, "Invalid period");
-        uint256 oldPeriod = yieldPeriod;
-        yieldPeriod = _yieldPeriod;
-        emit YieldPeriodUpdated(oldPeriod, _yieldPeriod);
     }
 
     function _generateYield() internal {
@@ -80,23 +90,20 @@ contract StrategyFactory is ERC4626, Ownable, ReentrancyGuard {
                 abi.encodePacked(
                     block.timestamp,
                     block.prevrandao,
-                    address(this),
-                    baseYield
+                    address(this)
                 )
             )
         );
-        uint256 randomFactor = (randomSeed % 50) + 80;
+        uint256 randomFactor = (randomSeed % randomRange) + minRandomFactor;
         lastRandomFactor = randomFactor;
 
         uint256 yieldAmount = (baseYield * randomFactor) / 100;
-
         if (yieldAmount > 0) {
-            IVirtualUSDT(address(asset())).mint(address(this), yieldAmount);
+            IVirtualUSDC(address(asset())).mint(address(this), yieldAmount);
         }
 
         accumulatedYield += yieldAmount;
         lastYieldUpdate = block.timestamp;
-
         emit YieldGenerated(yieldAmount);
     }
 
@@ -111,7 +118,7 @@ contract StrategyFactory is ERC4626, Ownable, ReentrancyGuard {
     function withdraw(
         uint256 assets,
         address receiver,
-        address
+        address owner
     ) public virtual override onlyVault nonReentrant returns (uint256) {
         _generateYield();
         uint256 balance = IERC20(asset()).balanceOf(address(this));
@@ -127,20 +134,17 @@ contract StrategyFactory is ERC4626, Ownable, ReentrancyGuard {
             accumulatedYield;
         uint256 timeElapsed = block.timestamp - lastYieldUpdate;
         uint256 pendingYield = 0;
-
         if (timeElapsed > 0 && baseAssets > 0) {
             uint256 baseYield = (baseAssets * baseAPY * timeElapsed) /
                 (yieldPeriod * 10000);
             pendingYield = (baseYield * lastRandomFactor) / 100;
         }
-
         return baseAssets + pendingYield;
     }
 
     function harvest() external onlyVault nonReentrant returns (uint256) {
         _generateYield();
         uint256 harvestedAmount = accumulatedYield;
-
         if (harvestedAmount > 0) {
             totalHarvested += harvestedAmount;
             accumulatedYield = 0;
@@ -148,20 +152,72 @@ contract StrategyFactory is ERC4626, Ownable, ReentrancyGuard {
             IERC20(asset()).safeTransfer(vault, harvestedAmount);
             emit Harvested(harvestedAmount, block.timestamp);
         }
-
         return harvestedAmount;
     }
+}
 
-    function estimatedAPY() external view returns (uint256) {
-        return (baseAPY * lastRandomFactor) / 100;
+contract GenericStrategy is BaseStrategy {
+    constructor(
+        IERC20 _asset,
+        string memory _name,
+        string memory _symbol,
+        uint256 _baseAPY,
+        uint256 _minRandomFactor,
+        uint256 _randomRange,
+        address _owner
+    )
+        BaseStrategy(
+            _asset,
+            _name,
+            _symbol,
+            _baseAPY,
+            _minRandomFactor,
+            _randomRange,
+            _owner
+        )
+    {}
+}
+
+contract StrategyFactory is Ownable {
+    address[] public allStrategies;
+    mapping(string => address) public getStrategyByName;
+
+    event StrategyCreated(
+        address indexed strategy,
+        string name,
+        uint256 baseAPY
+    );
+
+    constructor() Ownable(msg.sender) {}
+
+    function createStrategy(
+        IERC20 _asset,
+        string calldata _riskLevel,
+        uint256 _baseAPY,
+        uint256 _minRandomFactor,
+        uint256 _randomRange
+    ) external onlyOwner returns (address) {
+        string memory name = string(
+            abi.encodePacked("Aura ", _riskLevel, " Strategy")
+        );
+        string memory symbol = string(abi.encodePacked("sAURA-", _riskLevel));
+        GenericStrategy strategy = new GenericStrategy(
+            _asset,
+            name,
+            symbol,
+            _baseAPY,
+            _minRandomFactor,
+            _randomRange,
+            msg.sender
+        );
+        address strategyAddr = address(strategy);
+        allStrategies.push(strategyAddr);
+        getStrategyByName[_riskLevel] = strategyAddr;
+        emit StrategyCreated(strategyAddr, _riskLevel, _baseAPY);
+        return strategyAddr;
     }
 
-    function withdrawAll() external onlyVault nonReentrant returns (uint256) {
-        _generateYield();
-        uint256 total = IERC20(asset()).balanceOf(address(this));
-        if (total > 0) {
-            IERC20(asset()).safeTransfer(vault, total);
-        }
-        return total;
+    function getStrategiesCount() external view returns (uint256) {
+        return allStrategies.length;
     }
 }
