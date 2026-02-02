@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../interfaces/IVirtualUSDC.sol";
+import "../interfaces/IStrategy.sol";
 
 abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -76,8 +77,8 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
         uint256 timeElapsed = block.timestamp - lastYieldUpdate;
         if (timeElapsed == 0) return;
 
-        uint256 baseAssets = IERC20(asset()).balanceOf(address(this)) +
-            accumulatedYield;
+        uint256 baseAssets = IERC20(asset()).balanceOf(address(this));
+
         if (baseAssets == 0) {
             lastYieldUpdate = block.timestamp;
             return;
@@ -107,6 +108,22 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
         emit YieldGenerated(yieldAmount);
     }
 
+    function estimatedAPY() external view virtual returns (uint256) {
+        return baseAPY;
+    }
+
+    function withdrawAll()
+        external
+        virtual
+        onlyVault
+        nonReentrant
+        returns (uint256)
+    {
+        uint256 shares = balanceOf(msg.sender);
+        if (shares == 0) return 0;
+        return redeem(shares, msg.sender, msg.sender);
+    }
+
     function deposit(
         uint256 assets,
         address receiver
@@ -121,25 +138,11 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
         address owner
     ) public virtual override onlyVault nonReentrant returns (uint256) {
         _generateYield();
-        uint256 balance = IERC20(asset()).balanceOf(address(this));
-        uint256 withdrawn = assets > balance ? balance : assets;
-        if (withdrawn > 0) {
-            IERC20(asset()).safeTransfer(receiver, withdrawn);
-        }
-        return withdrawn;
+        return super.withdraw(assets, receiver, owner);
     }
 
     function totalAssets() public view virtual override returns (uint256) {
-        uint256 baseAssets = IERC20(asset()).balanceOf(address(this)) +
-            accumulatedYield;
-        uint256 timeElapsed = block.timestamp - lastYieldUpdate;
-        uint256 pendingYield = 0;
-        if (timeElapsed > 0 && baseAssets > 0) {
-            uint256 baseYield = (baseAssets * baseAPY * timeElapsed) /
-                (yieldPeriod * 10000);
-            pendingYield = (baseYield * lastRandomFactor) / 100;
-        }
-        return baseAssets + pendingYield;
+        return IERC20(asset()).balanceOf(address(this));
     }
 
     function harvest() external onlyVault nonReentrant returns (uint256) {
