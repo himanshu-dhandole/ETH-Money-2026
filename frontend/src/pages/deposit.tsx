@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   readContract,
   waitForTransactionReceipt,
@@ -10,15 +10,11 @@ import DefaultLayout from "@/layouts/default";
 import { config } from "@/config/wagmiConfig";
 import USDT_ABI from "@/abi/VirtualUSDC.json";
 import VAULT_ABI from "@/abi/AuraVault.json";
-import RISK_ABI from "@/abi/RiskNFT.json";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 import { ArrowRight, Lock, Plus, TrendingUp, Gift, Wallet } from "lucide-react";
 
-const USDT = import.meta.env.VITE_VIRTUAL_USDT_ADDRESS as `0x${string}`;
-const RISK = import.meta.env.VITE_RISK_NFT_ADDRESS as `0x${string}`;
-const VAULT = import.meta.env.VITE_AURA_VAULT_ADDRESS as `0x${string}`;
-
-const ONE = 10n ** 18n;
+const USDT = import.meta.env.VITE_USDC_ADDRESS as `0x${string}`;
+const VAULT = import.meta.env.VITE_VAULT_ROUTER_ADDRESS as `0x${string}`;
 
 // Types
 interface UserState {
@@ -40,88 +36,40 @@ export default function Deposit() {
   const [airdropLoading, setAirdropLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"deposit" | "withdraw">("deposit");
 
-  // State
+  // State - Using dummy data for now
   const [userState, setUserState] = useState<UserState>({
-    auraBalance: "0",
-    usdtBalance: "0",
-    totalDeposited: "0",
-    userValue: "0.00",
+    auraBalance: "2,450.00",
+    usdtBalance: "10,000.00",
+    totalDeposited: "2,450.00",
+    userValue: "2,567.80",
   });
 
   const [vaultState, setVaultState] = useState<VaultState>({
-    tvl: "0",
-    apy: "5.2",
+    tvl: "142,500.00",
+    apy: "12.4",
   });
 
   const [amountInput, setAmountInput] = useState("");
 
-  // Fetch User Data
+  // Fetch User Data (using dummy data for now)
   const fetchUserData = useCallback(async () => {
     if (!address) return;
 
     try {
-      const [aura, usdt, deposit, userValue] = await Promise.all([
-        readContract(config, {
-          address: VAULT,
-          abi: VAULT_ABI,
-          functionName: "balanceOf",
-          args: [address],
-        }),
-        readContract(config, {
-          address: USDT,
-          abi: USDT_ABI,
-          functionName: "balanceOf",
-          args: [address],
-        }),
-        readContract(config, {
-          address: VAULT,
-          abi: VAULT_ABI,
-          functionName: "getUserDeposit",
-          args: [address],
-        }),
-        readContract(config, {
-          address: VAULT,
-          abi: VAULT_ABI,
-          functionName: "getUserValue",
-          args: [address],
-        }),
-      ]);
-
-      const depositData = deposit as any;
-
-      setUserState({
-        auraBalance: (Number(aura) / Number(ONE)).toFixed(2),
-        usdtBalance: (Number(usdt) / Number(ONE)).toFixed(2),
-        totalDeposited: (
-          Number(depositData.totalDeposited) / Number(ONE)
-        ).toFixed(2),
-        userValue: (Number(userValue) / Number(ONE)).toFixed(2),
-      });
+      // TODO: Replace with actual contract calls
+      // For now, using dummy data
+      console.log("Fetching user data for:", address);
     } catch (err) {
       console.error("Error fetching user data:", err);
     }
   }, [address]);
 
-  // Fetch Vault Data
+  // Fetch Vault Data (using dummy data for now)
   const fetchVaultData = useCallback(async () => {
     try {
-      const [tvl, apy] = await Promise.all([
-        readContract(config, {
-          address: VAULT,
-          abi: VAULT_ABI,
-          functionName: "totalAssets",
-        }),
-        readContract(config, {
-          address: VAULT,
-          abi: VAULT_ABI,
-          functionName: "estimatedVaultAPY",
-        }),
-      ]);
-
-      setVaultState({
-        tvl: (Number(tvl) / Number(ONE)).toFixed(2),
-        apy: (Number(apy) / 100).toFixed(1),
-      });
+      // TODO: Replace with actual contract calls
+      // For now, using dummy data
+      console.log("Fetching vault data");
     } catch (err) {
       console.error("Error fetching vault data:", err);
     }
@@ -205,9 +153,7 @@ export default function Deposit() {
     setLoading(true);
 
     try {
-      const amount = BigInt(
-        Math.floor(parseFloat(amountInput) * 1e18)
-      );
+      const amount = BigInt(Math.floor(parseFloat(amountInput) * 1e18));
 
       const tx = await writeContract(config, {
         address: VAULT,
@@ -227,12 +173,7 @@ export default function Deposit() {
     } finally {
       setLoading(false);
     }
-  }, [
-    address,
-    amountInput,
-    fetchUserData,
-    fetchVaultData,
-  ]);
+  }, [address, amountInput, fetchUserData, fetchVaultData]);
 
   const quickAmounts = ["100", "500", "1000", "5000"];
   const quickLabels = ["$100", "$500", "$1k", "$5k"];
@@ -255,10 +196,10 @@ export default function Deposit() {
   if (!address) {
     return (
       <DefaultLayout>
-        <div className="min-h-screen bg-[#0e120f] flex items-center justify-center">
+        <div className="min-h-screen bg-[#0B0C10] flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#1c261f] flex items-center justify-center mx-auto mb-4 border border-white/5">
-              <Wallet className="w-8 h-8 text-[#13ec5b]" />
+            <div className="w-16 h-16 rounded-2xl bg-[#16181D] flex items-center justify-center mx-auto mb-4 border border-white/5">
+              <Wallet className="w-8 h-8 text-[#135bec]" />
             </div>
             <h1 className="text-2xl font-bold mb-2 text-white">
               Connect Wallet
@@ -274,18 +215,18 @@ export default function Deposit() {
 
   return (
     <DefaultLayout>
-      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)] relative overflow-hidden font-sans">
+      <div className="flex flex-col lg:flex-row min-h-screen relative overflow-hidden font-sans">
         {/* LEFT PANEL: Total Balance & Withdraw */}
-        <section className="flex-1 bg-[#0e120f] flex flex-col justify-center items-center relative p-8 lg:p-20 border-b lg:border-b-0 lg:border-r border-white/5">
+        <section className="flex-1 bg-[#0B0C10] flex flex-col justify-center items-center relative p-8 lg:p-20 border-b lg:border-b-0 lg:border-r border-white/5">
           {/* Subtle radial background gradient */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(19,236,91,0.03),transparent_40%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(19,91,236,0.03),transparent_40%)] pointer-events-none" />
 
           <div className="w-full max-w-md flex flex-col gap-8 z-0 relative">
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-gray-400">
-                <span className="text-xl">🐖</span>
+                <span className="text-xl">🔷</span>
                 <span className="uppercase tracking-widest text-xs font-semibold">
-                  Total Balance
+                  Total Deposited
                 </span>
               </div>
 
@@ -300,13 +241,6 @@ export default function Deposit() {
                   </span>
                 </div>
               </div>
-
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#13ec5b]/10 border border-[#13ec5b]/20 self-start">
-                <TrendingUp className="w-4 h-4 text-[#13ec5b]" />
-                <span className="text-[#13ec5b] text-sm font-bold">
-                  +{vaultState.apy}% APY
-                </span>
-              </div>
             </div>
 
             <div className="pt-8 border-t border-white/5">
@@ -315,12 +249,18 @@ export default function Deposit() {
               </p>
               <button
                 onClick={() => {
-                  setActiveTab(activeTab === "deposit" ? "withdraw" : "deposit");
+                  setActiveTab(
+                    activeTab === "deposit" ? "withdraw" : "deposit",
+                  );
                   setAmountInput("");
                 }}
                 className="w-full sm:w-auto h-14 px-8 rounded-xl border border-white/20 text-white font-bold hover:bg-white/5 hover:border-white/40 active:scale-95 transition-all flex items-center justify-center gap-3 group"
               >
-                <span>{activeTab === "deposit" ? "Withdraw Funds" : "Initialize Deposit"}</span>
+                <span>
+                  {activeTab === "deposit"
+                    ? "Withdraw Funds"
+                    : "Initialize Deposit"}
+                </span>
                 {activeTab === "deposit" ? (
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 ) : (
@@ -332,7 +272,7 @@ export default function Deposit() {
         </section>
 
         {/* RIGHT PANEL: Add Funds */}
-        <section className="flex-1 bg-[#1c261f] flex flex-col justify-center items-center relative p-8 lg:p-20">
+        <section className="flex-1 bg-[#16181D] flex flex-col justify-center items-center relative p-8 lg:p-20">
           {/* Background decoration */}
           <div className="absolute bottom-0 right-0 w-full h-1/2 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
 
@@ -340,11 +280,11 @@ export default function Deposit() {
             {/* Promo Card */}
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 border border-white/10 p-6 shadow-2xl group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Gift className="w-32 h-32 text-[#13ec5b] -rotate-12 translate-x-8 -translate-y-8" />
+                <Gift className="w-32 h-32 text-[#135bec] -rotate-12 translate-x-8 -translate-y-8" />
               </div>
               <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="bg-[#13ec5b] text-[#0e120f] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                  <span className="bg-[#135bec] text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
                     New User
                   </span>
                 </div>
@@ -358,9 +298,9 @@ export default function Deposit() {
                 <button
                   onClick={handleAirdrop}
                   disabled={airdropLoading}
-                  className="h-10 px-4 bg-white text-[#0e120f] text-sm font-bold rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="h-10 px-4 bg-white text-[#0B0C10] text-sm font-bold rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
-                  <Plus className="w-4 h-4 bg-[#0e120f] text-white rounded-full p-0.5" />
+                  <Plus className="w-4 h-4 bg-[#0B0C10] text-white rounded-full p-0.5" />
                   Claim Free Tokens
                 </button>
               </div>
@@ -370,31 +310,43 @@ export default function Deposit() {
             <div className="space-y-6 mt-4">
               <div className="flex items-center justify-between">
                 <label className="uppercase tracking-widest text-xs font-semibold text-gray-400">
-                  {activeTab === "deposit" ? "Deposit Amount" : "Withdraw Amount"}
+                  {activeTab === "deposit"
+                    ? "Deposit Amount"
+                    : "Withdraw Amount"}
                 </label>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
                   <span>{activeTab === "deposit" ? "Wallet:" : "Staked:"}</span>
                   <span className="font-mono text-white">
-                    {activeTab === "deposit" ? `$${userState.usdtBalance}` : `${userState.auraBalance} AURA`}
+                    {activeTab === "deposit"
+                      ? `$${userState.usdtBalance}`
+                      : `${userState.auraBalance} AURA`}
                   </span>
                 </div>
               </div>
 
               <div className="relative group/input">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <span className="text-gray-500 text-xl font-medium">{activeTab === "deposit" ? "$" : "✧"}</span>
+                  <span className="text-gray-500 text-xl font-medium">
+                    {activeTab === "deposit" ? "$" : "✧"}
+                  </span>
                 </div>
                 <input
                   type="number"
                   value={amountInput}
                   onChange={(e) => setAmountInput(e.target.value)}
                   placeholder="0.00"
-                  className="block w-full pl-10 pr-24 py-5 bg-black/20 border border-white/10 rounded-xl text-3xl font-bold text-white placeholder-gray-600 focus:ring-2 focus:ring-[#13ec5b] focus:border-transparent transition-all outline-none"
+                  className="block w-full pl-10 pr-24 py-5 bg-black/20 border border-white/10 rounded-xl text-3xl font-bold text-white placeholder-gray-600 focus:ring-2 focus:ring-[#135bec] focus:border-transparent transition-all outline-none"
                 />
                 <div className="absolute inset-y-0 right-2 flex items-center">
                   <button
-                    onClick={() => setAmountInput(activeTab === "deposit" ? userState.usdtBalance : userState.auraBalance)}
-                    className="bg-white/5 hover:bg-white/10 text-[#13ec5b] text-xs font-bold py-1.5 px-3 rounded-lg border border-white/5 transition-colors uppercase tracking-wider"
+                    onClick={() =>
+                      setAmountInput(
+                        activeTab === "deposit"
+                          ? userState.usdtBalance
+                          : userState.auraBalance,
+                      )
+                    }
+                    className="bg-white/5 hover:bg-white/10 text-[#135bec] text-xs font-bold py-1.5 px-3 rounded-lg border border-white/5 transition-colors uppercase tracking-wider"
                   >
                     Max
                   </button>
@@ -416,15 +368,26 @@ export default function Deposit() {
 
               {/* Deposit Action */}
               <button
-                onClick={activeTab === "deposit" ? handleDeposit : handleWithdraw}
+                onClick={
+                  activeTab === "deposit" ? handleDeposit : handleWithdraw
+                }
                 disabled={
                   loading || !amountInput || parseFloat(amountInput) <= 0
                 }
-                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,236,91,0.15)] hover:shadow-[0_0_30px_rgba(19,236,91,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${activeTab === "deposit" ? "bg-[#13ec5b] text-[#0e120f] hover:bg-[#0fd652]" : "bg-white text-black hover:bg-gray-200"
-                  }`}
+                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${
+                  activeTab === "deposit"
+                    ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
+                    : "bg-white text-black hover:bg-gray-200"
+                }`}
               >
-                {activeTab === "deposit" ? <Lock className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
-                {activeTab === "deposit" ? "Deposit to Vault" : "Withdraw Assets"}
+                {activeTab === "deposit" ? (
+                  <Lock className="w-5 h-5" />
+                ) : (
+                  <TrendingUp className="w-5 h-5" />
+                )}
+                {activeTab === "deposit"
+                  ? "Deposit to Vault"
+                  : "Withdraw Assets"}
               </button>
 
               <p className="text-center text-xs text-gray-500 mt-2">
@@ -434,7 +397,6 @@ export default function Deposit() {
           </div>
         </section>
       </div>
-      <Toaster />
     </DefaultLayout>
   );
 }

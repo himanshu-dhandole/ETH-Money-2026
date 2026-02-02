@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import DefaultLayout from "@/layouts/default";
 import {
   ShieldCheck,
@@ -19,9 +19,8 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { config } from "@/config/wagmiConfig";
 import RISK_ABI from "@/abi/RiskNFT.json";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 
 const RISK_ADDRESS = import.meta.env.VITE_RISK_NFT_ADDRESS as `0x${string}`;
 
@@ -93,7 +92,7 @@ export default function Profile() {
         : "Aggressive";
   const riskLevelClass =
     riskScore < 30
-      ? "text-emerald-400"
+      ? "text-green-400"
       : riskScore < 60
         ? "text-yellow-400"
         : "text-red-500";
@@ -151,7 +150,7 @@ export default function Profile() {
   if (!isConnected) {
     return (
       <DefaultLayout>
-        <div className="min-h-screen bg-[#0e120f] flex items-center justify-center text-white">
+        <div className="min-h-screen bg-[#0B0C10] flex items-center justify-center text-white">
           <p>Please connect your wallet to view your profile.</p>
         </div>
       </DefaultLayout>
@@ -180,49 +179,32 @@ export default function Profile() {
       </style>
 
       {/* Main Content Split View */}
-      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)] relative overflow-hidden font-sans">
+      <div className="flex flex-col lg:flex-row min-h-screen relative overflow-hidden font-sans ">
         {/* Floating Header (Desktop) */}
-        <div className="hidden lg:flex absolute top-0 left-0 w-full p-8 justify-between items-start z-10 pointer-events-none">
-          <div className="pointer-events-auto flex items-center gap-3 bg-[#0e120f]/80 backdrop-blur-md px-4 py-2 rounded-full border border-white/5">
-            <ShieldCheck className="text-[#13ec5b] w-5 h-5" />
-            <span className="font-bold text-white tracking-tight">
-              Aura Profile
-            </span>
-          </div>
-          <div className="pointer-events-auto">
-            <button className="group flex items-center justify-center gap-2 overflow-hidden rounded-full h-10 px-5 bg-[#0e120f]/80 backdrop-blur-md border border-white/5 text-white text-sm font-bold transition hover:border-[#13ec5b]/50">
-              <span className="w-2 h-2 rounded-full bg-[#13ec5b] group-hover:bg-white transition-colors"></span>
-              <span className="font-mono">
-                {address
-                  ? `${address.slice(0, 6)}...${address.slice(-4)}`
-                  : "Not Connected"}
-              </span>
-            </button>
-          </div>
-        </div>
+        <div className="hidden lg:flex absolute top-0 left-0 w-full p-8 justify-between items-start z-10 pointer-events-none"></div>
 
         {/* LEFT PANEL: NFT & Stats */}
-        <section className="flex-1 bg-[#0e120f] flex flex-col justify-center items-center relative p-8 lg:p-20 border-b lg:border-b-0 lg:border-r border-white/5 overflow-y-auto lg:overflow-visible">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(19,236,91,0.05),transparent_50%)] pointer-events-none"></div>
+        <section className="flex-1 bg-[#0B0C10] flex flex-col justify-center items-center relative p-8 lg:p-20 border-b lg:border-b-0 lg:border-r border-white/5 overflow-y-auto lg:overflow-visible">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(19,91,236,0.05),transparent_50%)] pointer-events-none"></div>
 
           <div className="w-full max-w-md flex flex-col items-center z-0">
             {/* NFT Card */}
             {hasProfile ? (
               <div className="relative group perspective-1000 mb-12">
-                <div className="absolute -inset-4 bg-[#13ec5b]/20 blur-3xl rounded-full opacity-20 group-hover:opacity-40 transition-opacity duration-700"></div>
+                <div className="absolute -inset-4 bg-[#135bec]/20 blur-3xl rounded-full opacity-20 group-hover:opacity-40 transition-opacity duration-700"></div>
 
                 <div className="relative w-72 h-[420px] bg-gradient-to-br from-gray-800 to-black rounded-3xl border border-white/10 shadow-2xl flex flex-col items-center justify-between p-6 overflow-hidden transition-transform duration-500 hover:scale-[1.02] hover:-rotate-1">
                   <div className="absolute inset-0 nft-shimmer pointer-events-none"></div>
 
                   <div className="w-full flex justify-between items-center z-10">
                     <Fingerprint className="text-gray-500 w-6 h-6" />
-                    <span className="text-[10px] font-mono text-[#13ec5b] border border-[#13ec5b]/30 px-2 py-0.5 rounded-full bg-[#13ec5b]/5">
+                    <span className="text-[10px] font-mono text-[#135bec] border border-[#135bec]/30 px-2 py-0.5 rounded-full bg-[#135bec]/5">
                       #{tokenId?.toString().padStart(4, "0")}
                     </span>
                   </div>
 
                   <div className="relative z-10 flex flex-col items-center">
-                    <ShieldCheck className="w-[120px] h-[120px] text-[#13ec5b] drop-shadow-[0_0_15px_rgba(19,236,91,0.3)]" />
+                    <ShieldCheck className="w-[120px] h-[120px] text-[#135bec] drop-shadow-[0_0_15px_rgba(19,91,236,0.3)]" />
                     <h3 className="mt-4 text-2xl font-bold text-white tracking-tight">
                       Risk Sentinel
                     </h3>
@@ -245,7 +227,7 @@ export default function Profile() {
                     </div>
                     <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
                       <div
-                        className="bg-gradient-to-r from-yellow-500 to-[#13ec5b] h-full transition-all duration-1000"
+                        className="bg-gradient-to-r from-yellow-500 to-[#135bec] h-full transition-all duration-1000"
                         style={{ width: `${riskScore}%` }}
                       ></div>
                     </div>
@@ -253,7 +235,7 @@ export default function Profile() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-[420px] w-72 bg-[#111613] rounded-3xl border border-dashed border-white/10 mb-12">
+              <div className="flex flex-col items-center justify-center h-[420px] w-72 bg-[#16181D] rounded-3xl border border-dashed border-white/10 mb-12">
                 <ShieldCheck className="w-16 h-16 text-gray-700 mb-4" />
                 <p className="text-gray-500 text-sm">No Profile Found</p>
               </div>
@@ -262,7 +244,7 @@ export default function Profile() {
             {/* Allocation Breakdown */}
             <div className="w-full space-y-4 px-4">
               <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <PieChart className="text-[#13ec5b] w-4 h-4" />
+                <PieChart className="text-[#135bec] w-4 h-4" />
                 Allocation Breakdown
               </h4>
               <div className="grid gap-3">
@@ -271,9 +253,9 @@ export default function Profile() {
                   <div className="w-12 text-xs font-bold text-gray-400">
                     LOW
                   </div>
-                  <div className="flex-1 h-8 bg-[#1c261f] border border-white/5 rounded-lg relative overflow-hidden flex items-center px-3">
+                  <div className="flex-1 h-8 bg-[#16181D] border border-white/5 rounded-lg relative overflow-hidden flex items-center px-3">
                     <div
-                      className="absolute inset-y-0 left-0 bg-[#13ec5b]/20 transition-all duration-1000"
+                      className="absolute inset-y-0 left-0 bg-green-500/20 transition-all duration-1000"
                       style={{ width: `${low}%` }}
                     ></div>
                     <span className="relative z-10 text-xs font-medium text-white">
@@ -290,7 +272,7 @@ export default function Profile() {
                   <div className="w-12 text-xs font-bold text-gray-400">
                     MED
                   </div>
-                  <div className="flex-1 h-8 bg-[#1c261f] border border-white/5 rounded-lg relative overflow-hidden flex items-center px-3">
+                  <div className="flex-1 h-8 bg-[#16181D] border border-white/5 rounded-lg relative overflow-hidden flex items-center px-3">
                     <div
                       className="absolute inset-y-0 left-0 bg-yellow-500/20 transition-all duration-1000"
                       style={{ width: `${med}%` }}
@@ -309,7 +291,7 @@ export default function Profile() {
                   <div className="w-12 text-xs font-bold text-gray-400">
                     HIGH
                   </div>
-                  <div className="flex-1 h-8 bg-[#1c261f] border border-white/5 rounded-lg relative overflow-hidden flex items-center px-3">
+                  <div className="flex-1 h-8 bg-[#16181D] border border-white/5 rounded-lg relative overflow-hidden flex items-center px-3">
                     <div
                       className="absolute inset-y-0 left-0 bg-red-500/20 transition-all duration-1000"
                       style={{ width: `${high}%` }}
@@ -328,8 +310,8 @@ export default function Profile() {
         </section>
 
         {/* RIGHT PANEL: Strategy & Management */}
-        <section className="flex-1 bg-[#1c261f] flex flex-col justify-center items-center relative p-8 lg:p-20 overflow-y-auto">
-          <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,rgba(19,236,91,0.05),transparent_60%)] pointer-events-none"></div>
+        <section className="flex-1 bg-[#16181D] flex flex-col justify-center items-center relative p-8 lg:p-20 overflow-y-auto">
+          <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,rgba(19,91,236,0.05),transparent_60%)] pointer-events-none"></div>
 
           <div className="w-full max-w-md flex flex-col gap-8 z-0">
             {/* Strategy Card */}
@@ -339,10 +321,10 @@ export default function Profile() {
                   Current Strategy
                 </h2>
                 {hasProfile && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#13ec5b]/10 border border-[#13ec5b]/20 text-[#13ec5b] text-[10px] font-bold uppercase tracking-wide">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#135bec]/10 border border-[#135bec]/20 text-[#135bec] text-[10px] font-bold uppercase tracking-wide">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#13ec5b] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#13ec5b]"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#135bec] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#135bec]"></span>
                     </span>
                     AI Active
                   </span>
@@ -378,7 +360,7 @@ export default function Profile() {
                         <div className="text-[10px] uppercase text-gray-500 font-bold tracking-wider mb-1">
                           Projected APY
                         </div>
-                        <div className="text-xl font-bold text-[#13ec5b]">
+                        <div className="text-xl font-bold text-[#135bec]">
                           {5 + (riskScore * 0.15).toFixed(1)}%
                         </div>
                       </div>
@@ -436,7 +418,7 @@ export default function Profile() {
                     setShowUpdateModal(true);
                   }}
                   disabled={isUpdating || isConfirming}
-                  className="w-full h-12 bg-white hover:bg-gray-200 text-[#0e120f] text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full h-12 glass-button text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10"
                 >
                   {isUpdating || isConfirming ? (
                     <>
@@ -453,13 +435,6 @@ export default function Profile() {
                   )}
                 </button>
               </div>
-
-              <p className="text-center text-xs text-gray-600">
-                Last assessment:{" "}
-                <span className="text-gray-500">
-                  {hasProfile ? "Recently" : "Never"}
-                </span>
-              </p>
             </div>
           </div>
         </section>
@@ -467,11 +442,13 @@ export default function Profile() {
 
       {/* UPDATE MODAL */}
       {showUpdateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-[#111613] border border-white/10 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="w-full max-w-md glass-panel rounded-2xl p-6 shadow-2xl animate-scaleIn scrollbar-hide">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-white">
-                {hasProfile ? "Update Risk Allocation" : "Create Risk Allocation"}
+                {hasProfile
+                  ? "Update Risk Allocation"
+                  : "Create Risk Allocation"}
               </h3>
               <button
                 onClick={() => setShowUpdateModal(false)}
@@ -486,7 +463,7 @@ export default function Profile() {
                 {/* Low Risk Slider */}
                 <div>
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-[#13ec5b] font-bold">Low Risk</span>
+                    <span className="text-green-500 font-bold">Low Risk</span>
                     <span className="text-white font-mono">
                       {newAllocations.low}%
                     </span>
@@ -499,7 +476,7 @@ export default function Profile() {
                     onChange={(e) =>
                       handleSliderChange("low", parseInt(e.target.value))
                     }
-                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#13ec5b]"
+                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer slider-green"
                   />
                 </div>
 
@@ -521,7 +498,7 @@ export default function Profile() {
                     onChange={(e) =>
                       handleSliderChange("med", parseInt(e.target.value))
                     }
-                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer slider-yellow"
                   />
                 </div>
 
@@ -541,7 +518,7 @@ export default function Profile() {
                     onChange={(e) =>
                       handleSliderChange("high", parseInt(e.target.value))
                     }
-                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-500"
+                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer slider-red"
                   />
                 </div>
               </div>
@@ -550,13 +527,14 @@ export default function Profile() {
               <div className="flex justify-between items-center p-3 rounded-lg bg-white/5 border border-white/5">
                 <span className="text-sm text-gray-400">Total Allocation</span>
                 <span
-                  className={`font-mono font-bold ${newAllocations.low +
+                  className={`font-mono font-bold ${
+                    newAllocations.low +
                       newAllocations.med +
                       newAllocations.high ===
-                      100
-                      ? "text-[#13ec5b]"
+                    100
+                      ? "text-green-500"
                       : "text-red-500"
-                    }`}
+                  }`}
                 >
                   {newAllocations.low +
                     newAllocations.med +
@@ -575,23 +553,23 @@ export default function Profile() {
               <button
                 onClick={handleUpdate}
                 disabled={isUpdating || isConfirming}
-                className="w-full h-12 bg-[#13ec5b] hover:bg-[#0fd652] text-black font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-12 glass-button hover:bg-white/10 text-white font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUpdating || isConfirming ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     {hasProfile ? "Updating..." : "Minting..."}
                   </>
+                ) : hasProfile ? (
+                  "Confirm Update"
                 ) : (
-                  hasProfile ? "Confirm Update" : "Confirm Mint"
+                  "Confirm Mint"
                 )}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <Toaster />
     </DefaultLayout>
   );
 }
