@@ -8,7 +8,16 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import "../interfaces/IStrategy.sol";
 
-contract BaseVault is ERC4626, Ownable, ReentrancyGuard {
+import "../interfaces/INitroliteVault.sol";
+import "../NitroliteIntegration.sol";
+
+contract BaseVault is
+    ERC4626,
+    Ownable,
+    ReentrancyGuard,
+    NitroliteIntegration,
+    INitroliteVault
+{
     using SafeERC20 for IERC20;
 
     struct StrategyAllocation {
@@ -95,8 +104,8 @@ contract BaseVault is ERC4626, Ownable, ReentrancyGuard {
 
     function updateAllocations(
         uint256[] calldata indices,
-        uint16[] calldata allocations
-    ) external onlyOwner {
+        uint16[] memory allocations
+    ) public onlyOwner {
         if (indices.length != allocations.length || indices.length == 0)
             revert InvalidAllocation();
 
@@ -398,5 +407,26 @@ contract BaseVault is ERC4626, Ownable, ReentrancyGuard {
         uint256 recovered = IStrategy(strategies[strategyIndex].strategy)
             .withdrawAll();
         emit EmergencyExit(strategyIndex, recovered);
+    }
+
+    function settleRebalance(
+        uint8 riskTier,
+        uint256[] calldata indices,
+        uint8[] calldata allocations
+    ) external override onlyVerifiedNitroliteOperator {
+        // Implement rebalance logic for Nitrolite operator
+        uint16[] memory allocations16 = new uint16[](allocations.length);
+        for (uint256 i = 0; i < allocations.length; i++) {
+            allocations16[i] = uint16(allocations[i]) * 100;
+        }
+        updateAllocations(indices, allocations16);
+    }
+
+    function settleTransfer(
+        address user,
+        uint256 amount,
+        bool isWithdraw
+    ) external override onlyVerifiedNitroliteOperator {
+        revert("Not implemented");
     }
 }

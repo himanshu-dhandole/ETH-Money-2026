@@ -23,12 +23,7 @@ contract Deploy is Script {
     VaultRouter public router;
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envOr(
-            "PRIVATE_KEY",
-            uint256(
-                0x96305d6713ad0da88eaef9fd8591f9cab8e310c974a713695701c0bafa2531f5
-            )
-        );
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("Deploying with address:", deployer);
