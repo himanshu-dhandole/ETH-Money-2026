@@ -8,7 +8,7 @@ import {
 import { useAccount } from "wagmi";
 import DefaultLayout from "@/layouts/default";
 import { config } from "@/config/wagmiConfig";
-import USDT_ABI from "@/abi/USDC.json";
+import USDT_ABI from "@/abi/VirtualUSDC.json";
 import VAULT_ABI from "@/abi/Vault.json";
 import RISK_ABI from "@/abi/RiskNFT.json";
 

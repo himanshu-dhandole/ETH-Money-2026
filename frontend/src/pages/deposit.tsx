@@ -8,18 +8,20 @@ import {
 import { useAccount } from "wagmi";
 import DefaultLayout from "@/layouts/default";
 import { config } from "@/config/wagmiConfig";
-import USDT_ABI from "@/abi/USDC.json";
-import VAULT_ABI from "@/abi/Vault.json";
+import VIRTUAL_USDC_ABI from "@/abi/VirtualUSDC.json";
+import VAULT_ROUTER_ABI from "@/abi/VaultRouter.json";
 import { toast } from "sonner";
 import { ArrowRight, Lock, Plus, TrendingUp, Gift, Wallet } from "lucide-react";
+import { formatUnits, parseUnits } from "viem";
 
-const USDT = import.meta.env.VITE_USDC_ADDRESS as `0x${string}`;
+
+const USDC = import.meta.env.VITE_VIRTUAL_USDC_ADDRESS as `0x${string}`;
 const VAULT = import.meta.env.VITE_VAULT_ROUTER_ADDRESS as `0x${string}`;
 
 // Types
 interface UserState {
   auraBalance: string;
-  usdtBalance: string;
+  USDCBalance: string;
   totalDeposited: string;
   userValue: string;
 }
@@ -29,6 +31,17 @@ interface VaultState {
   apy: string;
 }
 
+// Helper to format numbers with commas and fixed decimals
+const formatNumber = (val: string | number, decimals: number = 2) => {
+  const num = typeof val === "string" ? parseFloat(val) : val;
+  if (isNaN(num)) return "0.00";
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(num);
+};
+
+
 // Main Deposit Component
 export default function Deposit() {
   const { address } = useAccount();
@@ -36,60 +49,120 @@ export default function Deposit() {
   const [airdropLoading, setAirdropLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"deposit" | "withdraw">("deposit");
 
-  // State - Using dummy data for now
+  // State - Initialized with zeros
   const [userState, setUserState] = useState<UserState>({
-    auraBalance: "2,450.00",
-    usdtBalance: "10,000.00",
-    totalDeposited: "2,450.00",
-    userValue: "2,567.80",
+    auraBalance: "0.00",
+    USDCBalance: "0.00",
+    totalDeposited: "0.00",
+    userValue: "0.00",
   });
 
   const [vaultState, setVaultState] = useState<VaultState>({
-    tvl: "142,500.00",
-    apy: "12.4",
+    tvl: "0.00",
+    apy: "0.0",
   });
+
 
   const [amountInput, setAmountInput] = useState("");
 
-  // Fetch User Data (using dummy data for now)
+  // Fetch User Data
   const fetchUserData = useCallback(async () => {
     if (!address) return;
 
     try {
-      // TODO: Replace with actual contract calls
-      // For now, using dummy data
-      console.log("Fetching user data for:", address);
+      const balance = await readContract(config, {
+        address: USDC,
+        abi: VIRTUAL_USDC_ABI,
+        functionName: "balanceOf",
+        args: [address],
+      }) as bigint;
+
+      const position = await readContract(config, {
+        address: VAULT,
+        abi: VAULT_ROUTER_ABI,
+        functionName: "getUserPosition",
+        args: [address],
+      }) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+
+      // position returns: [lowShares, medShares, highShares, lowValue, medValue, highValue, totalValue, totalDeposited, profitLoss]
+      const [, , , , , , totalValue, totalDeposited] = position;
+
+      setUserState({
+        USDCBalance: formatUnits(balance, 18),
+        totalDeposited: formatUnits(totalDeposited, 18),
+        userValue: formatUnits(totalValue, 18),
+        auraBalance: formatUnits(totalValue, 18),
+      });
+
+
     } catch (err) {
       console.error("Error fetching user data:", err);
     }
   }, [address]);
 
-  // Fetch Vault Data (using dummy data for now)
+  // Fetch Vault Data
   const fetchVaultData = useCallback(async () => {
     try {
-      // TODO: Replace with actual contract calls
-      // For now, using dummy data
-      console.log("Fetching vault data");
+      const stats = await readContract(config, {
+        address: VAULT,
+        abi: VAULT_ROUTER_ABI,
+        functionName: "getProtocolStats",
+      }) as [bigint, bigint, bigint, bigint];
+
+      // stats returns: [totalValueLocked, lowVaultTVL, medVaultTVL, highVaultTVL]
+      const [totalValueLocked] = stats;
+
+      const apys = await readContract(config, {
+        address: VAULT,
+        abi: VAULT_ROUTER_ABI,
+        functionName: "getVaultAPYs",
+      }) as [bigint, bigint, bigint];
+
+      // apys returns: [lowAPY, medAPY, highAPY]
+      const [lowAPY, medAPY, highAPY] = apys;
+      const averageAPY = (Number(lowAPY) + Number(medAPY) + Number(highAPY)) / 3 / 100; // Assuming APY is in bps
+
+      setVaultState({
+        tvl: formatUnits(totalValueLocked, 18),
+        apy: averageAPY.toFixed(1),
+      });
+
+
     } catch (err) {
       console.error("Error fetching vault data:", err);
     }
   }, []);
 
-  // Airdrop USDT
+
+  // Airdrop USDC
   const handleAirdrop = useCallback(async () => {
     if (!address) return;
-    setAirdropLoading(true);
 
     try {
+      const hasClaimed = await readContract(config, {
+        address: USDC,
+        abi: VIRTUAL_USDC_ABI,
+        functionName: "hasClaimed",
+        args: [address],
+      }) as boolean;
+
+      if (hasClaimed) {
+        toast.error("Already claimed", {
+          description: "You have already claimed your test tokens.",
+        });
+        return;
+      }
+
+      setAirdropLoading(true);
       const tx = await writeContract(config, {
-        address: USDT,
-        abi: USDT_ABI,
+        address: USDC,
+        abi: VIRTUAL_USDC_ABI,
         functionName: "airdrop",
         account: address,
       });
       await waitForTransactionReceipt(config, { hash: tx });
       toast.success("Test tokens claimed!", {
-        description: "10,000 vUSDT has been added to your wallet",
+        description: "10,000 vUSDC has been added to your wallet",
       });
       await fetchUserData();
     } catch (err) {
@@ -100,17 +173,18 @@ export default function Deposit() {
     }
   }, [address, fetchUserData]);
 
+
   // Deposit
   const handleDeposit = useCallback(async () => {
     if (!address || !amountInput) return;
     setLoading(true);
 
     try {
-      const amount = BigInt(Math.floor(parseFloat(amountInput) * 1e18));
+      const amount = parseUnits(amountInput, 18);
 
       const allowance = (await readContract(config, {
-        address: USDT,
-        abi: USDT_ABI,
+        address: USDC,
+        abi: VIRTUAL_USDC_ABI,
         functionName: "allowance",
         args: [address, VAULT],
       })) as bigint;
@@ -118,17 +192,18 @@ export default function Deposit() {
       if (allowance < amount) {
         toast.info("Approving tokens...");
         const approveTx = await writeContract(config, {
-          address: USDT,
-          abi: USDT_ABI,
+          address: USDC,
+          abi: VIRTUAL_USDC_ABI,
           functionName: "approve",
           args: [VAULT, amount],
         });
         await waitForTransactionReceipt(config, { hash: approveTx });
+        toast.success("Tokens approved!");
       }
 
       const tx = await writeContract(config, {
         address: VAULT,
-        abi: VAULT_ABI,
+        abi: VAULT_ROUTER_ABI,
         functionName: "deposit",
         args: [amount],
       });
@@ -147,21 +222,36 @@ export default function Deposit() {
     }
   }, [address, amountInput, fetchUserData, fetchVaultData]);
 
+
   // Withdraw
   const handleWithdraw = useCallback(async () => {
     if (!address || !amountInput || parseFloat(amountInput) <= 0) return;
     setLoading(true);
 
     try {
-      const amount = BigInt(Math.floor(parseFloat(amountInput) * 1e18));
+      const inputAmount = parseUnits(amountInput, 18);
+      const totalValue = parseUnits(userState.userValue, 18);
 
-      const tx = await writeContract(config, {
-        address: VAULT,
-        abi: VAULT_ABI,
-        functionName: "withdraw",
-        args: [amount],
-        gas: 5_000_000n,
-      });
+      let tx;
+      if (inputAmount >= totalValue) {
+        // Withdraw All
+        tx = await writeContract(config, {
+          address: VAULT,
+          abi: VAULT_ROUTER_ABI,
+          functionName: "withdrawAll",
+          gas: 5_000_000n,
+        });
+      } else {
+        // Withdraw Partial - calculate percentage in basis points (10000 = 100%)
+        const percentageBps = (inputAmount * 10000n) / totalValue;
+        tx = await writeContract(config, {
+          address: VAULT,
+          abi: VAULT_ROUTER_ABI,
+          functionName: "withdrawPartial",
+          args: [percentageBps],
+          gas: 5_000_000n,
+        });
+      }
 
       await waitForTransactionReceipt(config, { hash: tx });
       toast.success("Withdrawal successful!");
@@ -173,7 +263,8 @@ export default function Deposit() {
     } finally {
       setLoading(false);
     }
-  }, [address, amountInput, fetchUserData, fetchVaultData]);
+  }, [address, amountInput, userState.userValue, fetchUserData, fetchVaultData]);
+
 
   const quickAmounts = ["100", "500", "1000", "5000"];
   const quickLabels = ["$100", "$500", "$1k", "$5k"];
@@ -232,8 +323,9 @@ export default function Deposit() {
 
               <div className="relative">
                 <h1 className="text-5xl lg:text-7xl font-bold tracking-tighter text-white">
-                  ${userState.userValue}
+                  ${formatNumber(userState.userValue)}
                 </h1>
+
                 {/* Visual placeholder watermark */}
                 <div className="absolute -right-4 -top-2 lg:-right-8 lg:-top-4 opacity-50">
                   <span className="text-[48px] lg:text-[64px] text-white/5 -rotate-12 select-none">
@@ -318,9 +410,10 @@ export default function Deposit() {
                   <span>{activeTab === "deposit" ? "Wallet:" : "Staked:"}</span>
                   <span className="font-mono text-white">
                     {activeTab === "deposit"
-                      ? `$${userState.usdtBalance}`
-                      : `${userState.auraBalance} AURA`}
+                      ? `$${formatNumber(userState.USDCBalance)}`
+                      : `${formatNumber(userState.auraBalance)} AURA`}
                   </span>
+
                 </div>
               </div>
 
@@ -342,7 +435,7 @@ export default function Deposit() {
                     onClick={() =>
                       setAmountInput(
                         activeTab === "deposit"
-                          ? userState.usdtBalance
+                          ? userState.USDCBalance
                           : userState.auraBalance,
                       )
                     }
@@ -374,11 +467,10 @@ export default function Deposit() {
                 disabled={
                   loading || !amountInput || parseFloat(amountInput) <= 0
                 }
-                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${
-                  activeTab === "deposit"
-                    ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
-                    : "bg-white text-black hover:bg-gray-200"
-                }`}
+                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${activeTab === "deposit"
+                  ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
+                  : "bg-white text-black hover:bg-gray-200"
+                  }`}
               >
                 {activeTab === "deposit" ? (
                   <Lock className="w-5 h-5" />

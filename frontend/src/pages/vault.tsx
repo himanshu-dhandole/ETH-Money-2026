@@ -11,7 +11,26 @@ import {
   Info,
   ChevronRight,
 } from "lucide-react";
+
 import DefaultLayout from "@/layouts/default";
+import { useEffect, useCallback } from "react";
+import { readContract } from "@wagmi/core";
+import { formatUnits } from "viem";
+import { config } from "@/config/wagmiConfig";
+import VAULT_ROUTER_ABI from "@/abi/VaultRouter.json";
+
+const VAULT_ROUTER = import.meta.env.VITE_VAULT_ROUTER_ADDRESS as `0x${string}`;
+
+// Helper to format numbers with commas and fixed decimals
+const formatNumber = (val: string | number, decimals: number = 2) => {
+  const num = typeof val === "string" ? parseFloat(val) : val;
+  if (isNaN(num)) return "0.00";
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(num);
+};
+
 
 // Vault data structure
 interface VaultData {
@@ -78,6 +97,59 @@ const VAULTS: VaultData[] = [
 
 export default function VaultPage() {
   const [selectedVault, setSelectedVault] = useState<string | null>(null);
+  const [vaultStats, setVaultStats] = useState({
+    totalTVL: "0.00",
+    avgAPY: "0.0",
+    lowTVL: "0.00",
+    medTVL: "0.00",
+    highTVL: "0.00",
+    lowAPY: "0.0",
+    medAPY: "0.0",
+    highAPY: "0.0",
+  });
+
+  const fetchVaultData = useCallback(async () => {
+    try {
+      const stats = await readContract(config, {
+        address: VAULT_ROUTER,
+        abi: VAULT_ROUTER_ABI,
+        functionName: "getProtocolStats",
+      }) as [bigint, bigint, bigint, bigint];
+
+      const [totalValueLocked, lowVaultTVL, medVaultTVL, highVaultTVL] = stats;
+
+      const apys = await readContract(config, {
+        address: VAULT_ROUTER,
+        abi: VAULT_ROUTER_ABI,
+        functionName: "getVaultAPYs",
+      }) as [bigint, bigint, bigint];
+
+      const [lowAPY, medAPY, highAPY] = apys;
+
+      // Calculate average APY (assuming bps)
+      const avg = (Number(lowAPY) + Number(medAPY) + Number(highAPY)) / 3 / 100;
+
+      setVaultStats({
+        totalTVL: formatUnits(totalValueLocked, 18),
+        lowTVL: formatUnits(lowVaultTVL, 18),
+        medTVL: formatUnits(medVaultTVL, 18),
+        highTVL: formatUnits(highVaultTVL, 18),
+        lowAPY: (Number(lowAPY) / 100).toFixed(1),
+        medAPY: (Number(medAPY) / 100).toFixed(1),
+        highAPY: (Number(highAPY) / 100).toFixed(1),
+        avgAPY: avg.toFixed(1),
+      });
+    } catch (err) {
+      console.error("Error fetching vault data:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchVaultData();
+    const interval = setInterval(fetchVaultData, 30000);
+    return () => clearInterval(interval);
+  }, [fetchVaultData]);
+
 
   const getRiskBadge = (risk: string) => {
     const badges = {
@@ -143,8 +215,9 @@ export default function VaultPage() {
                     Total TVL
                   </span>
                 </div>
-                <p className="text-3xl font-bold text-white">$82.8M</p>
+                <p className="text-3xl font-bold text-white">${formatNumber(vaultStats.totalTVL)}</p>
                 <p className="text-xs text-green-400 mt-1">+12.4% this month</p>
+
               </div>
 
               <div className="glass-panel p-6 rounded-2xl">
@@ -169,8 +242,9 @@ export default function VaultPage() {
                     Avg APY
                   </span>
                 </div>
-                <p className="text-3xl font-bold text-white">20.2%</p>
+                <p className="text-3xl font-bold text-white">{vaultStats.avgAPY}%</p>
                 <p className="text-xs text-gray-500 mt-1">Across all vaults</p>
+
               </div>
             </div>
 
@@ -184,18 +258,16 @@ export default function VaultPage() {
                 return (
                   <div
                     key={vault.id}
-                    className={`relative group cursor-pointer transition-all duration-300 ${
-                      isSelected ? "scale-105" : "hover:scale-102"
-                    }`}
+                    className={`relative group cursor-pointer transition-all duration-300 ${isSelected ? "scale-105" : "hover:scale-102"
+                      }`}
                     onClick={() => setSelectedVault(vault.id)}
                   >
                     {/* Card */}
                     <div
-                      className={`glass-panel rounded-3xl p-8 h-full border transition-all duration-300 ${
-                        isSelected
-                          ? "border-[#135bec]/50 shadow-[0_0_40px_rgba(19,91,236,0.2)]"
-                          : "border-white/10 hover:border-white/20"
-                      }`}
+                      className={`glass-panel rounded-3xl p-8 h-full border transition-all duration-300 ${isSelected
+                        ? "border-[#135bec]/50 shadow-[0_0_40px_rgba(19,91,236,0.2)]"
+                        : "border-white/10 hover:border-white/20"
+                        }`}
                     >
                       {/* Gradient Background */}
                       <div
@@ -228,10 +300,11 @@ export default function VaultPage() {
                         <div className="mb-6">
                           <div className="flex items-baseline gap-2">
                             <span className="text-5xl font-bold text-white">
-                              {vault.apy}
+                              {vault.id === "low-risk" ? vaultStats.lowAPY : vault.id === "medium-risk" ? vaultStats.medAPY : vaultStats.highAPY}
                             </span>
                             <span className="text-2xl text-gray-400">%</span>
                           </div>
+
                           <p className="text-sm text-gray-500 uppercase tracking-wider mt-1">
                             Estimated APY
                           </p>
@@ -249,9 +322,10 @@ export default function VaultPage() {
                               TVL
                             </p>
                             <p className="text-lg font-bold text-white">
-                              {vault.tvl}
+                              ${formatNumber(vault.id === "low-risk" ? vaultStats.lowTVL : vault.id === "medium-risk" ? vaultStats.medTVL : vaultStats.highTVL)}
                             </p>
                           </div>
+
                           <div>
                             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
                               Min Deposit
