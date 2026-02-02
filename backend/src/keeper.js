@@ -22,8 +22,8 @@ const VAULT_ABI = [
     "function verifiedNitroliteOperators(address operator) external view returns (bool)",
     "function owner() external view returns (address)",
 
-    // Write functions (Nitrolite-enabled)
-    "function updateAllocations(uint256[] calldata indices, uint16[] calldata allocations) public",
+    // Write functions
+    "function updateAllocations(uint256[] calldata indices, uint16[] memory allocations) public",
     "function rebalance() external",
     "function harvest() external returns (uint256)",
     "function settleRebalance(uint8 riskTier, uint256[] calldata indices, uint8[] calldata allocations) external",
@@ -32,7 +32,7 @@ const VAULT_ABI = [
     // Events
     "event AllocationsUpdated(uint256[] indices, uint16[] allocations)",
     "event Rebalanced(uint256 timestamp, uint256 totalAssets)",
-    "event Harvested(uint256 totalHarvested, uint256 fee, uint256 timestamp)"
+    "event Harvested(uint256 yield, uint256 fee, uint256 timestamp)"
 ];
 
 const STRATEGY_ABI = [
