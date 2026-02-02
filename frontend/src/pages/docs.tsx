@@ -8,8 +8,8 @@ import {
 import { useAccount } from "wagmi";
 import DefaultLayout from "@/layouts/default";
 import { config } from "@/config/wagmiConfig";
-import USDT_ABI from "@/abi/VirtualUSDC.json";
-import VAULT_ABI from "@/abi/AuraVault.json";
+import USDT_ABI from "@/abi/USDC.json";
+import VAULT_ABI from "@/abi/Vault.json";
 import RISK_ABI from "@/abi/RiskNFT.json";
 
 const USDT = import.meta.env.VITE_VIRTUAL_USDT_ADDRESS as `0x${string}`;
@@ -851,7 +851,7 @@ export default function AuraVaultDashboard() {
         });
 
         const res = await waitForTransactionReceipt(config, { hash: tx });
-        if(res.status === "success") {
+        if (res.status === "success") {
           showToast("Emergency withdrawal completed", "success");
           await fetchTierInfo();
         } else {
@@ -867,7 +867,7 @@ export default function AuraVaultDashboard() {
     [address, fetchTierInfo, showToast],
   );
 
-  const updateNFT = async() => {
+  const updateNFT = async () => {
     if (!address) return;
     setLoading(true);
     try {
@@ -887,9 +887,9 @@ export default function AuraVaultDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  const emergencyWithdrawStrategy = async() => {
+  const emergencyWithdrawStrategy = async () => {
     if (!address) return;
     setLoading(true);
     try {
@@ -897,12 +897,12 @@ export default function AuraVaultDashboard() {
         address: VAULT,
         abi: VAULT_ABI,
         functionName: "emergencyWithdrawStrategy",
-        args: [1,1],
+        args: [1, 1],
         account: address,
         gas: 3_000_000n,
       });
       await waitForTransactionReceipt(config, { hash: tx });
-      
+
       showToast("Emergency withdrawal completed", "success");
       await fetchTierInfo();
     } catch (err) {
@@ -911,7 +911,7 @@ export default function AuraVaultDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   // Initial load
   useEffect(() => {
@@ -1020,7 +1020,13 @@ export default function AuraVaultDashboard() {
                   <Button onClick={() => fetchUserData()} variant="secondary">
                     Refresh
                   </Button>
-                  <Button onClick={updateNFT} loading={loading} variant="danger">Update NFT</Button>
+                  <Button
+                    onClick={updateNFT}
+                    loading={loading}
+                    variant="danger"
+                  >
+                    Update NFT
+                  </Button>
                 </div>
               </div>
 
@@ -1502,8 +1508,6 @@ export default function AuraVaultDashboard() {
           <Button onClick={handleMintNFT} loading={loading} variant="primary">
             Mint Risk Profile NFT
           </Button>
-
-          
         </div>
       </Modal>
 

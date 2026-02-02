@@ -8,8 +8,8 @@ import {
 import { useAccount } from "wagmi";
 import DefaultLayout from "@/layouts/default";
 import { config } from "@/config/wagmiConfig";
-import USDT_ABI from "@/abi/VirtualUSDC.json";
-import VAULT_ABI from "@/abi/AuraVault.json";
+import USDT_ABI from "@/abi/USDC.json";
+import VAULT_ABI from "@/abi/Vault.json";
 import { toast } from "sonner";
 import { ArrowRight, Lock, Plus, TrendingUp, Gift, Wallet } from "lucide-react";
 

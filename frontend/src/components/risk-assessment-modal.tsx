@@ -6,6 +6,7 @@ interface RiskAssessmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (allocation: { low: number; mid: number; high: number }) => void;
+  mode?: "mint" | "update"; // mint = create new NFT, update = update existing NFT
 }
 
 interface Question {
@@ -60,6 +61,7 @@ export const RiskAssessmentModal = ({
   isOpen,
   onClose,
   onSubmit,
+  mode = "mint", // Default to mint mode
 }: RiskAssessmentModalProps) => {
   const [step, setStep] = useState<"questionnaire" | "results">(
     "questionnaire",
@@ -160,7 +162,8 @@ export const RiskAssessmentModal = ({
   };
 
   const handleMintNFT = () => {
-    toast.success("Risk NFT minting initiated!", {
+    const actionText = mode === "mint" ? "minting" : "update";
+    toast.success(`Risk NFT ${actionText} initiated!`, {
       description: `Allocation: Low ${allocation.low}%, Mid ${allocation.mid}%, High ${allocation.high}%`,
     });
     onSubmit(allocation);
@@ -420,7 +423,7 @@ export const RiskAssessmentModal = ({
               >
                 <Shield className="w-5 h-5 text-[#135bec]" />
                 <span className="text-sm font-semibold text-white">
-                  Mint Risk NFT
+                  {mode === "mint" ? "Mint Risk NFT" : "Update Risk NFT"}
                 </span>
               </button>
             </div>

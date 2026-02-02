@@ -45,9 +45,10 @@ export const Navbar = () => {
   const location = useLocation();
 
   const navItems = [
-    { href: "/profile", label: "Profile" },
+    { href: "/portfolio", label: "Portfolio" },
     { href: "/vault", label: "Vaults" },
     { href: "/deposit", label: "Deposit" },
+    { href: "/profile", label: "Profile" },
     { href: "/docs", label: "Docs" },
   ];
 

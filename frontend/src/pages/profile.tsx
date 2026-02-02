@@ -9,9 +9,7 @@ import {
   Settings,
   HelpCircle,
   ArrowRight,
-  X,
   Loader2,
-  AlertCircle,
 } from "lucide-react";
 import {
   useAccount,
@@ -21,20 +19,13 @@ import {
 } from "wagmi";
 import RISK_ABI from "@/abi/RiskNFT.json";
 import { toast } from "sonner";
+import { RiskAssessmentModal } from "@/components/risk-assessment-modal";
 
 const RISK_ADDRESS = import.meta.env.VITE_RISK_NFT_ADDRESS as `0x${string}`;
 
 export default function Profile() {
   const { address, isConnected } = useAccount();
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-
-  // Update state
-  const [newAllocations, setNewAllocations] = useState({
-    low: 40,
-    med: 40,
-    high: 20,
-  });
-  const [updateError, setUpdateError] = useState<string | null>(null);
 
   // Contract Reads
   const { data: riskProfileData, refetch: refetchProfile } = useReadContract({
@@ -116,36 +107,6 @@ export default function Profile() {
       });
     }
   }, [writeError]);
-
-  // Handlers
-  const handleSliderChange = (key: "low" | "med" | "high", value: number) => {
-    setNewAllocations((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleUpdate = () => {
-    const total = newAllocations.low + newAllocations.med + newAllocations.high;
-    if (total !== 100) {
-      setUpdateError(`Total allocation must equal 100% (Current: ${total}%)`);
-      return;
-    }
-    setUpdateError(null);
-
-    if (hasProfile) {
-      updateProfile({
-        address: RISK_ADDRESS,
-        abi: RISK_ABI,
-        functionName: "updateRiskProfile",
-        args: [newAllocations.low, newAllocations.med, newAllocations.high],
-      });
-    } else {
-      updateProfile({
-        address: RISK_ADDRESS,
-        abi: RISK_ABI,
-        functionName: "mint",
-        args: [newAllocations.low, newAllocations.med, newAllocations.high],
-      });
-    }
-  };
 
   if (!isConnected) {
     return (
@@ -409,14 +370,7 @@ export default function Profile() {
                   </div>
                 </div>
                 <button
-                  onClick={() => {
-                    setNewAllocations({
-                      low: low || 40,
-                      med: med || 40,
-                      high: high || 20,
-                    });
-                    setShowUpdateModal(true);
-                  }}
+                  onClick={() => setShowUpdateModal(true)}
                   disabled={isUpdating || isConfirming}
                   className="w-full h-12 glass-button text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10"
                 >
@@ -440,136 +394,29 @@ export default function Profile() {
         </section>
       </div>
 
-      {/* UPDATE MODAL */}
-      {showUpdateModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="w-full max-w-md glass-panel rounded-2xl p-6 shadow-2xl animate-scaleIn scrollbar-hide">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white">
-                {hasProfile
-                  ? "Update Risk Allocation"
-                  : "Create Risk Allocation"}
-              </h3>
-              <button
-                onClick={() => setShowUpdateModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              <div className="space-y-4">
-                {/* Low Risk Slider */}
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-green-500 font-bold">Low Risk</span>
-                    <span className="text-white font-mono">
-                      {newAllocations.low}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={newAllocations.low}
-                    onChange={(e) =>
-                      handleSliderChange("low", parseInt(e.target.value))
-                    }
-                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer slider-green"
-                  />
-                </div>
-
-                {/* Medium Risk Slider */}
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-yellow-500 font-bold">
-                      Medium Risk
-                    </span>
-                    <span className="text-white font-mono">
-                      {newAllocations.med}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={newAllocations.med}
-                    onChange={(e) =>
-                      handleSliderChange("med", parseInt(e.target.value))
-                    }
-                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer slider-yellow"
-                  />
-                </div>
-
-                {/* High Risk Slider */}
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-red-500 font-bold">High Risk</span>
-                    <span className="text-white font-mono">
-                      {newAllocations.high}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={newAllocations.high}
-                    onChange={(e) =>
-                      handleSliderChange("high", parseInt(e.target.value))
-                    }
-                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer slider-red"
-                  />
-                </div>
-              </div>
-
-              {/* Total Check */}
-              <div className="flex justify-between items-center p-3 rounded-lg bg-white/5 border border-white/5">
-                <span className="text-sm text-gray-400">Total Allocation</span>
-                <span
-                  className={`font-mono font-bold ${
-                    newAllocations.low +
-                      newAllocations.med +
-                      newAllocations.high ===
-                    100
-                      ? "text-green-500"
-                      : "text-red-500"
-                  }`}
-                >
-                  {newAllocations.low +
-                    newAllocations.med +
-                    newAllocations.high}
-                  %
-                </span>
-              </div>
-
-              {updateError && (
-                <div className="flex items gap-2 text-red-400 text-sm bg-red-500/10 p-3 rounded-lg border border-red-500/20">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <p>{updateError}</p>
-                </div>
-              )}
-
-              <button
-                onClick={handleUpdate}
-                disabled={isUpdating || isConfirming}
-                className="w-full h-12 glass-button hover:bg-white/10 text-white font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isUpdating || isConfirming ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {hasProfile ? "Updating..." : "Minting..."}
-                  </>
-                ) : hasProfile ? (
-                  "Confirm Update"
-                ) : (
-                  "Confirm Mint"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* RISK ASSESSMENT MODAL */}
+      <RiskAssessmentModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        mode={hasProfile ? "update" : "mint"}
+        onSubmit={(allocation) => {
+          if (hasProfile) {
+            updateProfile({
+              address: RISK_ADDRESS,
+              abi: RISK_ABI,
+              functionName: "updateRiskProfile",
+              args: [allocation.low, allocation.mid, allocation.high],
+            });
+          } else {
+            updateProfile({
+              address: RISK_ADDRESS,
+              abi: RISK_ABI,
+              functionName: "mint",
+              args: [allocation.low, allocation.mid, allocation.high],
+            });
+          }
+        }}
+      />
     </DefaultLayout>
   );
 }
