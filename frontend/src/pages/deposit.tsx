@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { ArrowRight, Lock, Plus, TrendingUp, Gift, Wallet } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
 
-
 const USDC = import.meta.env.VITE_VIRTUAL_USDC_ADDRESS as `0x${string}`;
 const VAULT = import.meta.env.VITE_VAULT_ROUTER_ADDRESS as `0x${string}`;
 
@@ -41,7 +40,6 @@ const formatNumber = (val: string | number, decimals: number = 2) => {
   }).format(num);
 };
 
-
 // Main Deposit Component
 export default function Deposit() {
   const { address } = useAccount();
@@ -62,7 +60,6 @@ export default function Deposit() {
     apy: "0.0",
   });
 
-
   const [amountInput, setAmountInput] = useState("");
 
   // Fetch User Data
@@ -70,19 +67,30 @@ export default function Deposit() {
     if (!address) return;
 
     try {
-      const balance = await readContract(config, {
+      const balance = (await readContract(config, {
         address: USDC,
         abi: VIRTUAL_USDC_ABI,
         functionName: "balanceOf",
         args: [address],
-      }) as bigint;
+      })) as bigint;
 
-      const position = await readContract(config, {
+      const position = (await readContract(config, {
         address: VAULT,
         abi: VAULT_ROUTER_ABI,
         functionName: "getUserPosition",
         args: [address],
-      }) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+      })) as [
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+        bigint,
+      ];
+      console.log(position);
 
       // position returns: [lowShares, medShares, highShares, lowValue, medValue, highValue, totalValue, totalDeposited, profitLoss]
       const [, , , , , , totalValue, totalDeposited] = position;
@@ -93,58 +101,69 @@ export default function Deposit() {
         userValue: formatUnits(totalValue, 18),
         auraBalance: formatUnits(totalValue, 18),
       });
-
-
     } catch (err) {
       console.error("Error fetching user data:", err);
     }
   }, [address]);
 
+  const getUserTotalValue = async () => {
+    if (!address) return;
+    try {
+      const rere = (await readContract(config, {
+        address: VAULT,
+        abi: VAULT_ROUTER_ABI,
+        functionName: "getUserTotalValue",
+        args: [address],
+      })) as bigint;
+      console.log(rere);
+    } catch (err) {
+      console.error("Error fetching user data:", err);
+    }
+  };
+
   // Fetch Vault Data
   const fetchVaultData = useCallback(async () => {
     try {
-      const stats = await readContract(config, {
+      const stats = (await readContract(config, {
         address: VAULT,
         abi: VAULT_ROUTER_ABI,
         functionName: "getProtocolStats",
-      }) as [bigint, bigint, bigint, bigint];
+      })) as [bigint, bigint, bigint, bigint];
 
       // stats returns: [totalValueLocked, lowVaultTVL, medVaultTVL, highVaultTVL]
       const [totalValueLocked] = stats;
 
-      const apys = await readContract(config, {
+      const apys = (await readContract(config, {
         address: VAULT,
         abi: VAULT_ROUTER_ABI,
         functionName: "getVaultAPYs",
-      }) as [bigint, bigint, bigint];
+      })) as [bigint, bigint, bigint];
 
       // apys returns: [lowAPY, medAPY, highAPY]
       const [lowAPY, medAPY, highAPY] = apys;
-      const averageAPY = (Number(lowAPY) + Number(medAPY) + Number(highAPY)) / 3 / 100; // Assuming APY is in bps
+      const averageAPY =
+        (Number(lowAPY) + Number(medAPY) + Number(highAPY)) / 3 / 100; // Assuming APY is in bps
 
       setVaultState({
         tvl: formatUnits(totalValueLocked, 18),
         apy: averageAPY.toFixed(1),
       });
-
-
     } catch (err) {
       console.error("Error fetching vault data:", err);
     }
   }, []);
-
 
   // Airdrop USDC
   const handleAirdrop = useCallback(async () => {
     if (!address) return;
 
     try {
-      const hasClaimed = await readContract(config, {
+      const hasClaimed = (await readContract(config, {
         address: USDC,
         abi: VIRTUAL_USDC_ABI,
         functionName: "hasClaimed",
         args: [address],
-      }) as boolean;
+      })) as boolean;
 
       if (hasClaimed) {
         toast.error("Already claimed", {
@@ -172,7 +191,6 @@ export default function Deposit() {
       setAirdropLoading(false);
     }
   }, [address, fetchUserData]);
-
 
   // Deposit
   const handleDeposit = useCallback(async () => {
@@ -222,7 +240,6 @@ export default function Deposit() {
     }
   }, [address, amountInput, fetchUserData, fetchVaultData]);
 
-
   // Withdraw
   const handleWithdraw = useCallback(async () => {
     if (!address || !amountInput || parseFloat(amountInput) <= 0) return;
@@ -263,8 +280,13 @@ export default function Deposit() {
     } finally {
       setLoading(false);
     }
-  }, [address, amountInput, userState.userValue, fetchUserData, fetchVaultData]);
-
+  }, [
+    address,
+    amountInput,
+    userState.userValue,
+    fetchUserData,
+    fetchVaultData,
+  ]);
 
   const quickAmounts = ["100", "500", "1000", "5000"];
   const quickLabels = ["$100", "$500", "$1k", "$5k"];
@@ -283,6 +305,29 @@ export default function Deposit() {
       return () => clearInterval(interval);
     }
   }, [address, fetchUserData, fetchVaultData]);
+
+  const handleHarvest = async () => {
+    if (!address) return;
+    setLoading(true);
+    try {
+      const tx = await writeContract(config, {
+        address: VAULT,
+        abi: VAULT_ROUTER_ABI,
+        functionName: "rebalance",
+        account: address,
+        gas: 5_000_000n,
+      });
+      const recipt = await waitForTransactionReceipt(config, { hash: tx });
+      if (recipt.status === "success") {
+        toast.success("Harvest successful!");
+      } else {
+        toast.error("Harvest failed");
+      }
+    } catch (err) {
+      toast.error("Harvest failed");
+      console.error(err);
+    }
+  };
 
   if (!address) {
     return (
@@ -413,7 +458,6 @@ export default function Deposit() {
                       ? `$${formatNumber(userState.USDCBalance)}`
                       : `${formatNumber(userState.auraBalance)} AURA`}
                   </span>
-
                 </div>
               </div>
 
@@ -467,10 +511,11 @@ export default function Deposit() {
                 disabled={
                   loading || !amountInput || parseFloat(amountInput) <= 0
                 }
-                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${activeTab === "deposit"
-                  ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
-                  : "bg-white text-black hover:bg-gray-200"
-                  }`}
+                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${
+                  activeTab === "deposit"
+                    ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
+                    : "bg-white text-black hover:bg-gray-200"
+                }`}
               >
                 {activeTab === "deposit" ? (
                   <Lock className="w-5 h-5" />
@@ -489,6 +534,8 @@ export default function Deposit() {
           </div>
         </section>
       </div>
+      <button onClick={getUserTotalValue}>Get User Total Value</button>
+      <button onClick={handleHarvest}>Harvest</button>
     </DefaultLayout>
   );
 }
