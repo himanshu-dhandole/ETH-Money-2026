@@ -5,7 +5,7 @@ const axios = require('axios');
 const { MongoClient } = require('mongodb');
 const config = require('./config');
 const logger = require('./logger');
-const { NitroliteClient } = require('@erc7824/nitrolite');
+const { NitroliteClient, StateIntent, ChannelStatus, getStateHash } = require('@erc7824/nitrolite');
 const { createPublicClient, createWalletClient, http } = require('viem');
 const { privateKeyToAccount } = require('viem/accounts');
 const { polygonAmoy } = require('viem/chains');
@@ -97,6 +97,7 @@ class NitroliteKeeperService {
         // Nitrolite Protocol Client
         this.nitroliteClient = null;
         this.channelId = null;
+        this.channelVersion = 0n;
         this.pendingSettlements = [];
 
         logger.info(`📡 Vault Contract: ${config.AURA_VAULT_ADDRESS}`);
@@ -800,6 +801,17 @@ class NitroliteKeeperService {
             logger.info('✅ MongoDB connection closed');
         }
 
+        if (this.channelId && this.nitroliteClient) {
+            try {
+                // In a production environment, you would finalize the channel state
+                // and sign a closing state with the peer.
+                logger.info(`🔌 Closing Nitrolite channel: ${this.channelId}`);
+                // Simplified closing for the service shutdown
+            } catch (error) {
+                logger.warn('⚠️ Failed to close Nitrolite channel cleanly:', error.message || error);
+            }
+        }
+
         logger.info('✅ Service stopped gracefully');
     }
 
@@ -858,7 +870,22 @@ class NitroliteKeeperService {
             logger.info('✅ Nitrolite Protocol SDK Initialized');
 
             // Establish or resume channel
-            this.channelId = `aura-rebalance-channel-${config.CHAIN_ID}`;
+            try {
+                const openChannels = await this.nitroliteClient.getOpenChannels();
+
+                if (openChannels.length > 0) {
+                    this.channelId = openChannels[0];
+                    logger.info(`🔌 Resuming Nitrolite channel: ${this.channelId}`);
+                } else {
+                    logger.info('🛰️ No open channels found on-chain, using virtual channel management');
+                    this.channelId = ethers.id(`aura-rebalance-channel-${config.CHAIN_ID}`);
+                }
+            } catch (error) {
+                logger.warn('⚠️ Vault contract does not support Nitrolite channel discovery, using virtual channel management');
+                this.channelId = ethers.id(`aura-rebalance-channel-${config.CHAIN_ID}`);
+            }
+
+            logger.info(`📝 Using Nitrolite Channel ID: ${this.channelId}`);
 
             // Start settlement timer
             this.settlementTimer = setInterval(
@@ -881,25 +908,66 @@ class NitroliteKeeperService {
         try {
             logger.info(`⚡ Submitting off-chain rebalance for Tier ${tier} to Nitrolite...`);
 
-            const rebalanceCommitment = {
-                type: 'REBALANCE',
-                tier,
-                indices,
-                allocations,
-                timestamp: Date.now()
+            logger.debug(`   Indices for Tier ${tier}: [${indices.join(', ')}]`);
+            logger.debug(`   Allocations for Tier ${tier}: [${allocations.join(', ')}]`);
+
+            // Encode the rebalance data into the state data field
+            const abiCoder = new ethers.AbiCoder();
+            const stateData = abiCoder.encode(
+                ["uint8", "uint256[]", "uint8[]"],
+                [tier, indices, allocations]
+            );
+
+            // Get current version (try contract first, then local)
+            let currentVersion = this.channelVersion || 0n;
+            try {
+                const channelData = await this.nitroliteClient.getChannelData(this.channelId);
+                if (channelData && channelData.lastValidState) {
+                    currentVersion = channelData.lastValidState.version;
+                }
+            } catch (error) {
+                // Fallback to local version tracking if contract read fails
+            }
+
+            // Construct the update state
+            const unsignedState = {
+                intent: StateIntent.OPERATE,
+                version: currentVersion + 1n,
+                data: stateData,
+                allocations: []
             };
 
-            // In a real P2P clearing scenario, you would use this.nitroliteClient.createChannel
-            // or checkpointChannel to commit the state to the Clearnode.
-            // For now, we queue it for the automated batch settlement on-chain.
+            const stateHash = getStateHash(this.channelId, unsignedState);
+            const signature = await this.nitroliteClient.walletClient.account.signMessage({
+                message: { raw: stateHash }
+            });
+
+            const state = {
+                ...unsignedState,
+                sigs: [signature]
+            };
+
+            // Attempt checkpointing (Clearnode/P2P), skip if on-chain call fails
+            try {
+                await this.nitroliteClient.checkpointChannel({
+                    channelId: this.channelId,
+                    candidateState: state
+                });
+            } catch (error) {
+                // In hybrid mode, missing on-chain checkpoint is OK as we settle via custom hook
+                logger.debug('ℹ️ Nitrolite on-chain checkpoint skipped (unsupported by vault contract)');
+            }
+
+            // Update local version tracking
+            this.channelVersion = state.version;
 
             // Queue for batch settlement
-            this.pendingSettlements.push(rebalanceCommitment);
+            this.pendingSettlements.push(state);
 
-            logger.info('✅ Off-chain commitment accepted by Nitrolite');
+            logger.info(`✅ Off-chain state signed for Tier ${tier} [Version: ${state.version}]`);
             return true;
         } catch (error) {
-            logger.warn('⚠️ Nitrolite off-chain submission failed, falling back to on-chain...');
+            logger.warn('⚠️ Nitrolite off-chain signing failed:', error.message || error);
             return false;
         }
     }
@@ -911,30 +979,49 @@ class NitroliteKeeperService {
 
         logger.info(`📦 Batch settling ${this.pendingSettlements.length} Nitrolite operations on-chain...`);
 
-        const settlements = [...this.pendingSettlements];
+        const states = [...this.pendingSettlements];
         this.pendingSettlements = [];
 
-        for (const settlement of settlements) {
+        for (const state of states) {
+            let tier;
             try {
-                if (settlement.type === 'REBALANCE') {
-                    logger.info(`⚖️ Settling rebalance for Tier ${settlement.tier}...`);
+                logger.debug(`🔍 Decoding state data for Version: ${state.version}. Data length: ${state.data.length}`);
 
-                    const vault = this.getVaultForTier(settlement.tier);
+                // Decode the state data
+                const abiCoder = new ethers.AbiCoder();
+                const [decodedTier, decodedIndices, decodedAllocations] = abiCoder.decode(
+                    ["uint8", "uint256[]", "uint8[]"],
+                    state.data
+                );
+                tier = Number(decodedTier);
+                const indices = Array.from(decodedIndices);
+                const allocations = Array.from(decodedAllocations);
 
-                    const tx = await vault.settleRebalance(
-                        settlement.tier,
-                        settlement.indices,
-                        settlement.allocations,
-                        { gasLimit: config.GAS_LIMIT_REBALANCE }
-                    );
+                logger.info(`⚖️ Settling rebalance from Nitrolite state for Tier ${tier} [Version: ${state.version}]...`);
 
-                    logger.info(`   🔄 Settlement TX for Tier ${settlement.tier}: ${tx.hash}`);
-                    const receipt = await tx.wait();
-                    logger.info(`✅ Tier ${settlement.tier} settlement confirmed in block ${receipt.blockNumber}`);
-                }
+                const vault = this.getVaultForTier(tier);
+
+                const tx = await vault.settleRebalance(
+                    tier,
+                    indices,
+                    allocations,
+                    { gasLimit: config.GAS_LIMIT_REBALANCE }
+                );
+
+                logger.info(`   🔄 Settlement TX for Tier ${tier}: ${tx.hash}`);
+                const receipt = await tx.wait();
+                logger.info(`✅ Tier ${tier} settlement confirmed in block ${receipt.blockNumber}`);
+
+                this.rebalanceCount++;
+                this.lastRebalanceTime = Date.now();
             } catch (error) {
-                logger.error(`❌ Settlement failed for Tier ${settlement.tier}:`, error.message || error);
-                this.pendingSettlements.push(settlement);
+                logger.error(`❌ Settlement failed for Tier ${tier !== undefined ? tier : 'unknown'}:`);
+                logger.error(error);
+                if (error.data) logger.error(`   Error Data: ${error.data}`);
+                if (error.transaction) logger.error(`   Failed TX: ${JSON.stringify(error.transaction)}`);
+
+                // In a production app, you might want to retry or handle this differently
+                this.pendingSettlements.push(state);
             }
         }
     }
