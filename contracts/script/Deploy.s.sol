@@ -50,7 +50,7 @@ contract Deploy is Script {
         _deployRouter();
 
         // Authorize Nitrolite operator (Keeper) from backend
-        address operator = vm.envAddress("KEEPER_ADDRESS");
+        address operator = deployer;
         lowVault.setNitroliteOperator(operator, true);
         medVault.setNitroliteOperator(operator, true);
         highVault.setNitroliteOperator(operator, true);
