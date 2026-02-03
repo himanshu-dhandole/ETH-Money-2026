@@ -10,7 +10,6 @@ import {
   ArrowRight as ArrowRightAlt,
   Zap,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 // Reusable components matching the HTML structure
 const NavLink = ({

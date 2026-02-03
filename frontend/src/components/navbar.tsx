@@ -113,9 +113,21 @@ export const Navbar = () => {
                    !transition-all !duration-300 \
                    !text-white",
               }}
+              detailsButton={{
+                className:
+                  "!flex !items-center !gap-2 !px-4 !py-2.5 !rounded-full !text-xs !font-medium \
+                   !bg-white/5 !backdrop-blur-xl \
+                   !border !border-white/10 \
+                   hover:!bg-white/10 hover:!border-white/20 \
+                   !transition-all !duration-300 \
+                   !text-white",
+              }}
               connectModal={{
                 title: "Connect to AuraVault",
                 showThirdwebBranding: false,
+                titleIcon:
+                  "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/diamond.svg",
+                size: "wide",
               }}
             />
           </div>
@@ -181,9 +193,20 @@ export const Navbar = () => {
                        !transition-all !duration-300 \
                        !text-white",
                   }}
+                  detailsButton={{
+                    className:
+                      "!w-full !flex !items-center !justify-center !gap-2 !px-5 !py-3 !rounded-xl !text-sm !font-medium \
+                       !bg-white/5 !backdrop-blur-xl \
+                       !border !border-white/10 \
+                       hover:!bg-white/10 hover:!border-white/20 \
+                       !transition-all !duration-300 \
+                       !text-white",
+                  }}
                   connectModal={{
                     title: "Connect to AuraVault",
                     showThirdwebBranding: false,
+                    titleIcon:
+                      "https://image2url.com/r2/default/images/1770124343818-61296266-aca1-4267-8e2c-4cabb40a9f8e.png",
                   }}
                 />
               </div>

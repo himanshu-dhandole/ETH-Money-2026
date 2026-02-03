@@ -1,7 +1,6 @@
 import { Link } from "@heroui/link";
 import { Diamond, Github, Twitter, MessageCircle } from "lucide-react";
 
-import { Navbar } from "@/components/navbar";
 import { Toaster } from "sonner";
 
 export default function DefaultLayout({
@@ -177,7 +176,7 @@ export default function DefaultLayout({
 
       <Toaster
         theme="dark"
-        position="top-center"
+        position="bottom-right"
         toastOptions={{
           style: {
             background: "rgba(22, 24, 29, 0.95)",

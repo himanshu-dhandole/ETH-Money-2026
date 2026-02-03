@@ -55,7 +55,7 @@ export default function Deposit() {
     userValue: "0.00",
   });
 
-  const [vaultState, setVaultState] = useState<VaultState>({
+  const [_vaultState, setVaultState] = useState<VaultState>({
     tvl: "0.00",
     apy: "0.0",
   });
@@ -106,21 +106,6 @@ export default function Deposit() {
     }
   }, [address]);
 
-  const getUserTotalValue = async () => {
-    if (!address) return;
-    try {
-      const rere = (await readContract(config, {
-        address: VAULT,
-        abi: VAULT_ROUTER_ABI,
-        functionName: "getUserTotalValue",
-        args: [address],
-      })) as bigint;
-      console.log(rere);
-    } catch (err) {
-      console.error("Error fetching user data:", err);
-    }
-  };
-
   // Fetch Vault Data
   const fetchVaultData = useCallback(async () => {
     try {
@@ -166,13 +151,13 @@ export default function Deposit() {
       })) as boolean;
 
       if (hasClaimed) {
-        toast.error("Already claimed", {
-          description: "You have already claimed your test tokens.",
-        });
+        toast.error("Already claimed test tokens");
         return;
       }
 
       setAirdropLoading(true);
+      const toastId = toast.loading("Claiming test tokens...");
+
       const tx = await writeContract(config, {
         address: USDC,
         abi: VIRTUAL_USDC_ABI,
@@ -180,9 +165,7 @@ export default function Deposit() {
         account: address,
       });
       await waitForTransactionReceipt(config, { hash: tx });
-      toast.success("Test tokens claimed!", {
-        description: "10,000 vUSDC has been added to your wallet",
-      });
+      toast.success("10,000 vUSDC claimed successfully", { id: toastId });
       await fetchUserData();
     } catch (err) {
       toast.error("Failed to claim tokens");
@@ -197,6 +180,8 @@ export default function Deposit() {
     if (!address || !amountInput) return;
     setLoading(true);
 
+    const toastId = toast.loading("Preparing deposit...");
+
     try {
       const amount = parseUnits(amountInput, 18);
 
@@ -208,7 +193,7 @@ export default function Deposit() {
       })) as bigint;
 
       if (allowance < amount) {
-        toast.info("Approving tokens...");
+        toast.loading("Approving tokens...", { id: toastId });
         const approveTx = await writeContract(config, {
           address: USDC,
           abi: VIRTUAL_USDC_ABI,
@@ -216,9 +201,9 @@ export default function Deposit() {
           args: [VAULT, amount],
         });
         await waitForTransactionReceipt(config, { hash: approveTx });
-        toast.success("Tokens approved!");
       }
 
+      toast.loading("Depositing to vault...", { id: toastId });
       const tx = await writeContract(config, {
         address: VAULT,
         abi: VAULT_ROUTER_ABI,
@@ -227,13 +212,13 @@ export default function Deposit() {
       });
 
       await waitForTransactionReceipt(config, { hash: tx });
-      toast.success("Deposit successful!", {
-        description: `$${amountInput} has been deposited to the vault`,
+      toast.success(`Deposited ${formatNumber(amountInput)} vUSDC`, {
+        id: toastId,
       });
       setAmountInput("");
       await Promise.all([fetchUserData(), fetchVaultData()]);
     } catch (err) {
-      toast.error("Deposit failed");
+      toast.error("Deposit failed", { id: toastId });
       console.error(err);
     } finally {
       setLoading(false);
@@ -244,6 +229,8 @@ export default function Deposit() {
   const handleWithdraw = useCallback(async () => {
     if (!address || !amountInput || parseFloat(amountInput) <= 0) return;
     setLoading(true);
+
+    const toastId = toast.loading("Processing withdrawal...");
 
     try {
       const inputAmount = parseUnits(amountInput, 18);
@@ -271,11 +258,13 @@ export default function Deposit() {
       }
 
       await waitForTransactionReceipt(config, { hash: tx });
-      toast.success("Withdrawal successful!");
+      toast.success(`Withdrew ${formatNumber(amountInput)} vUSDC`, {
+        id: toastId,
+      });
       setAmountInput("");
       await Promise.all([fetchUserData(), fetchVaultData()]);
     } catch (err) {
-      toast.error("Withdrawal failed");
+      toast.error("Withdrawal failed", { id: toastId });
       console.error(err);
     } finally {
       setLoading(false);
@@ -309,8 +298,10 @@ export default function Deposit() {
   const handleHarvest = async () => {
     if (!address) return;
     setLoading(true);
+
+    const toastId = toast.loading("Harvesting yield from all vaults...");
+
     try {
-      toast.info("Harvesting yield from all vaults...");
       const tx = await writeContract(config, {
         address: VAULT,
         abi: VAULT_ROUTER_ABI,
@@ -320,14 +311,14 @@ export default function Deposit() {
       });
       const receipt = await waitForTransactionReceipt(config, { hash: tx });
       if (receipt.status === "success") {
-        toast.success("Harvest successful! Yield collected from all vaults.");
+        toast.success("Yield harvested successfully", { id: toastId });
         await fetchUserData();
         await fetchVaultData();
       } else {
-        toast.error("Harvest failed");
+        toast.error("Harvest failed", { id: toastId });
       }
     } catch (err) {
-      toast.error("Harvest failed");
+      toast.error("Harvest failed", { id: toastId });
       console.error(err);
     } finally {
       setLoading(false);
@@ -337,8 +328,10 @@ export default function Deposit() {
   const handleRebalance = async () => {
     if (!address) return;
     setLoading(true);
+
+    const toastId = toast.loading("Rebalancing your position...");
+
     try {
-      toast.info("Rebalancing your position...");
       const tx = await writeContract(config, {
         address: VAULT,
         abi: VAULT_ROUTER_ABI,
@@ -348,16 +341,14 @@ export default function Deposit() {
       });
       const receipt = await waitForTransactionReceipt(config, { hash: tx });
       if (receipt.status === "success") {
-        toast.success(
-          "Rebalance successful! Position updated to match your risk profile.",
-        );
+        toast.success("Position rebalanced successfully", { id: toastId });
         await fetchUserData();
         await fetchVaultData();
       } else {
-        toast.error("Rebalance failed");
+        toast.error("Rebalance failed", { id: toastId });
       }
     } catch (err) {
-      toast.error("Rebalance failed");
+      toast.error("Rebalance failed", { id: toastId });
       console.error(err);
     } finally {
       setLoading(false);

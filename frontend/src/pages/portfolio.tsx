@@ -5,7 +5,6 @@ import {
   TrendingDown,
   Wallet,
   ArrowUpRight,
-  Clock,
   Shield,
   Zap,
   Flame,
@@ -25,16 +24,6 @@ import VAULT_ROUTER_ABI from "@/abi/Router.json";
 import BASE_VAULT_ABI from "@/abi/BaseVault.json";
 
 const VAULT_ROUTER = import.meta.env.VITE_VAULT_ROUTER_ADDRESS as `0x${string}`;
-
-// Helper to format numbers with commas and fixed decimals
-const formatNumber = (val: string | number, decimals: number = 2) => {
-  const num = typeof val === "string" ? parseFloat(val) : val;
-  if (isNaN(num)) return "0.00";
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(num);
-};
 
 interface Position {
   vault: string;
@@ -79,7 +68,7 @@ export default function PortfolioPage() {
     depositTimestamp: 0,
   });
 
-  const [vaultDetails, setVaultDetails] = useState<{
+  const [_vaultDetails, setVaultDetails] = useState<{
     low: VaultDetails | null;
     med: VaultDetails | null;
     high: VaultDetails | null;
@@ -376,14 +365,6 @@ export default function PortfolioPage() {
       currency: "USD",
       minimumFractionDigits: 2,
     }).format(num);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
   };
 
   const getDaysHeld = (depositDate: string) => {

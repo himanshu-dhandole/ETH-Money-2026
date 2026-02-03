@@ -1,4 +1,3 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
@@ -13,17 +12,15 @@ import { ThirdwebProvider } from "thirdweb/react";
 const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <ThirdwebProvider>
-          <BrowserRouter>
-            <Provider>
-              <App />
-            </Provider>
-          </BrowserRouter>
-        </ThirdwebProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
-
+  <WagmiProvider config={config}>
+    <QueryClientProvider client={queryClient}>
+      <ThirdwebProvider>
+        <BrowserRouter>
+          <Provider>
+            <App />
+          </Provider>
+        </BrowserRouter>
+      </ThirdwebProvider>
+    </QueryClientProvider>
+  </WagmiProvider>,
 );

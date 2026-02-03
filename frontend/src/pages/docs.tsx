@@ -4,15 +4,9 @@ import {
   Shield,
   Zap,
   Flame,
-  TrendingUp,
-  RefreshCw,
-  Wallet,
   FileText,
   GitBranch,
-  Clock,
   DollarSign,
-  Target,
-  Activity,
 } from "lucide-react";
 
 export default function DocsPage() {
