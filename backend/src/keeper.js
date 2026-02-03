@@ -111,11 +111,11 @@ class NitroliteKeeperService {
 
     async connectMongoDB() {
         try {
-            logger.info('🗄️  Connecting to MongoDB...');
+            logger.debug('🗄️  Connecting to MongoDB...');
             this.mongoClient = new MongoClient(config.MONGODB_URI);
             await this.mongoClient.connect();
             this.db = this.mongoClient.db(config.MONGODB_DB_NAME);
-            logger.info('✅ MongoDB connected');
+            logger.debug('✅ MongoDB connected');
         } catch (error) {
             logger.error('❌ MongoDB connection error:', error);
             throw error;
@@ -128,7 +128,7 @@ class NitroliteKeeperService {
 
     async verifyNitroliteAuthorization() {
         try {
-            logger.info('🔐 Verifying authorization...');
+            logger.debug('🔐 Verifying authorization...');
             const operatorAddress = await this.wallet.getAddress();
 
             // Try Nitrolite operator check on LowRiskVault (assuming it's the same for all)
@@ -197,7 +197,7 @@ class NitroliteKeeperService {
     // ============================================
 
     async fetchAllStrategies() {
-        logger.info('🔍 Fetching all strategies from each vault...');
+        logger.debug('🔍 Fetching all strategies from each vault...');
 
         const allStrategies = {
             tiers: [],
@@ -259,7 +259,7 @@ class NitroliteKeeperService {
     // ============================================
 
     async fetchCurrentAPYs(allStrategies) {
-        logger.info('📊 Fetching current APYs from blockchain...');
+        logger.debug('📊 Fetching current APYs from blockchain...');
 
         const currentAPYs = {
             byTier: {},
@@ -317,7 +317,7 @@ class NitroliteKeeperService {
     // ============================================
 
     async fetchPreviousAPYs(allStrategies, days = config.APY_HISTORY_DAYS) {
-        logger.info(`📈 Fetching ${days}-day APY history from MongoDB...`);
+        logger.debug(`📈 Fetching ${days}-day APY history from MongoDB...`);
 
         try {
             const collection = this.db.collection('strategy_performance');
@@ -428,7 +428,7 @@ class NitroliteKeeperService {
     // ============================================
 
     async getAIAllocations(currentAPYs, previousAPYs, allStrategies) {
-        logger.info('🤖 Requesting optimal allocations from AI...');
+        logger.debug('🤖 Requesting optimal allocations from AI...');
 
         try {
             const aiRequestData = {
@@ -482,13 +482,7 @@ class NitroliteKeeperService {
 
             const allocations = aiResponse.data;
 
-            logger.info('✅ AI Allocations Received');
-            if (allocations.confidence !== undefined) {
-                logger.info(`   Confidence: ${(allocations.confidence * 100).toFixed(1)}%`);
-            }
-
-            console.log("AI ALLOCATIONS RECEIVED: \n", JSON.stringify(allocations, null, 2));
-
+            // Removed console.log of allocations for cleaner output
             return allocations;
         } catch (error) {
             logger.error('❌ info: 🤖 Requesting optimal allocations from AI failed', error);
@@ -673,11 +667,7 @@ class NitroliteKeeperService {
     // ============================================
 
     async performRebalanceCycle() {
-        logger.info('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        logger.info('🔄 REBALANCE CYCLE STARTED');
-        logger.info(`⏰ Time: ${new Date().toISOString()}`);
-        logger.info(`📊 Cycle #${this.rebalanceCount + 1}`);
-        logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+        logger.info(`🔄 REBALANCE CYCLE STARTED [#${this.rebalanceCount + 1}]`);
 
         try {
             // Step 1: Fetch all strategies
@@ -723,10 +713,7 @@ class NitroliteKeeperService {
             // Step 6: Update MongoDB
             await this.updateMongoDBStrategies(currentAPYs);
 
-            logger.info('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            logger.info('✅ REBALANCE CYCLE COMPLETED SUCCESSFULLY');
-            logger.info(`📊 Total rebalances: ${this.rebalanceCount}`);
-            logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+            logger.info(`✅ REBALANCE CYCLE COMPLETED [Total: ${this.rebalanceCount}]`);
 
         } catch (error) {
             logger.error('❌ REBALANCE CYCLE FAILED:', error);
@@ -739,20 +726,13 @@ class NitroliteKeeperService {
     // ============================================
 
     async performHarvestCycle() {
-        logger.info('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        logger.info('🌾 HARVEST CYCLE STARTED');
-        logger.info(`⏰ Time: ${new Date().toISOString()}`);
-        logger.info(`📊 Cycle #${this.harvestCount + 1}`);
-        logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+        logger.info(`🌾 HARVEST CYCLE STARTED [#${this.harvestCount + 1}]`);
 
         try {
             const receipt = await this.harvestAll();
 
             if (receipt) {
-                logger.info('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                logger.info('✅ HARVEST CYCLE COMPLETED SUCCESSFULLY');
-                logger.info(`📊 Total harvests: ${this.harvestCount}`);
-                logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+                logger.info(`✅ HARVEST CYCLE COMPLETED [Total: ${this.harvestCount}]`);
             }
 
         } catch (error) {
