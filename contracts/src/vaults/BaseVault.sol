@@ -106,6 +106,13 @@ contract BaseVault is
         uint256[] calldata indices,
         uint16[] memory allocations
     ) public onlyOwner {
+        _updateAllocations(indices, allocations);
+    }
+
+    function _updateAllocations(
+        uint256[] memory indices,
+        uint16[] memory allocations
+    ) internal {
         if (indices.length != allocations.length || indices.length == 0)
             revert InvalidAllocation();
 
@@ -439,7 +446,7 @@ contract BaseVault is
         for (uint256 i = 0; i < allocations.length; i++) {
             allocations16[i] = uint16(allocations[i]) * 100;
         }
-        updateAllocations(indices, allocations16);
+        _updateAllocations(indices, allocations16);
     }
 
     function settleTransfer(
