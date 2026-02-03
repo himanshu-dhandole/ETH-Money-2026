@@ -493,7 +493,7 @@ export default function Deposit() {
                   </span>
                 </div>
                 <h3 className="text-xl font-bold text-white mb-1">
-                  Get 1,000 USDC Test Tokens
+                  Get 10,000 USDC Test Tokens
                 </h3>
                 <p className="text-gray-400 text-sm mb-4">
                   Start testing the vault immediately without spending real
@@ -519,7 +519,7 @@ export default function Deposit() {
                     : "Withdraw Amount"}
                 </label>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <span>{activeTab === "deposit" ? "Wallet:" : "Staked:"}</span>
+                  <span>{activeTab === "deposit" ? "Wallet:" : "Available:"}</span>
                   <span className="font-mono text-white">
                     {activeTab === "deposit"
                       ? `$${formatNumber(userState.USDCBalance)}`
