@@ -20,6 +20,10 @@ interface IRiskNFT {
     ) external view returns (RiskProfile memory);
 }
 
+interface IVaultWithHarvest is IVault {
+    function harvest() external returns (uint256);
+}
+
 contract VaultRouter is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -34,9 +38,9 @@ contract VaultRouter is Ownable, ReentrancyGuard {
     IERC20 public immutable depositToken;
     IRiskNFT public immutable riskNFT;
 
-    IVault public immutable lowRiskVault;
-    IVault public immutable medRiskVault;
-    IVault public immutable highRiskVault;
+    IVaultWithHarvest public immutable lowRiskVault;
+    IVaultWithHarvest public immutable medRiskVault;
+    IVaultWithHarvest public immutable highRiskVault;
 
     mapping(address => UserPosition) public userPositions;
 
@@ -59,7 +63,17 @@ contract VaultRouter is Ownable, ReentrancyGuard {
         uint256 percentage,
         uint256 amountReceived
     );
-    event Rebalanced(address indexed user, uint256 timestamp);
+    event Rebalanced(
+        address indexed user,
+        uint256 timestamp,
+        uint256 totalHarvested
+    );
+    event Harvested(
+        uint256 lowVaultYield,
+        uint256 medVaultYield,
+        uint256 highVaultYield,
+        uint256 totalYield
+    );
 
     error NoProfile();
     error ZeroAmount();
@@ -87,9 +101,9 @@ contract VaultRouter is Ownable, ReentrancyGuard {
 
         depositToken = IERC20(_depositToken);
         riskNFT = IRiskNFT(_riskNFT);
-        lowRiskVault = IVault(_lowRiskVault);
-        medRiskVault = IVault(_medRiskVault);
-        highRiskVault = IVault(_highRiskVault);
+        lowRiskVault = IVaultWithHarvest(_lowRiskVault);
+        medRiskVault = IVaultWithHarvest(_medRiskVault);
+        highRiskVault = IVaultWithHarvest(_highRiskVault);
     }
 
     function deposit(
@@ -106,26 +120,9 @@ contract VaultRouter is Ownable, ReentrancyGuard {
             msg.sender
         );
 
-        uint256 lowAlloc = (amount * profile.lowPct) / 100;
-        uint256 medAlloc = (amount * profile.medPct) / 100;
-        uint256 highAlloc = amount - lowAlloc - medAlloc;
-
         depositToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        if (lowAlloc > 0) {
-            depositToken.forceApprove(address(lowRiskVault), lowAlloc);
-            lowShares = lowRiskVault.deposit(lowAlloc, address(this));
-        }
-
-        if (medAlloc > 0) {
-            depositToken.forceApprove(address(medRiskVault), medAlloc);
-            medShares = medRiskVault.deposit(medAlloc, address(this));
-        }
-
-        if (highAlloc > 0) {
-            depositToken.forceApprove(address(highRiskVault), highAlloc);
-            highShares = highRiskVault.deposit(highAlloc, address(this));
-        }
+        (lowShares, medShares, highShares) = _depositByProfile(amount, profile);
 
         UserPosition storage pos = userPositions[msg.sender];
         pos.lowShares += lowShares;
@@ -158,7 +155,6 @@ contract VaultRouter is Ownable, ReentrancyGuard {
                 address(this)
             );
         }
-
         if (pos.medShares > 0) {
             medAssets = medRiskVault.redeem(
                 pos.medShares,
@@ -166,7 +162,6 @@ contract VaultRouter is Ownable, ReentrancyGuard {
                 address(this)
             );
         }
-
         if (pos.highShares > 0) {
             highAssets = highRiskVault.redeem(
                 pos.highShares,
@@ -217,7 +212,6 @@ contract VaultRouter is Ownable, ReentrancyGuard {
             );
             pos.lowShares -= lowSharesToRedeem;
         }
-
         if (medSharesToRedeem > 0) {
             medAssets = medRiskVault.redeem(
                 medSharesToRedeem,
@@ -226,7 +220,6 @@ contract VaultRouter is Ownable, ReentrancyGuard {
             );
             pos.medShares -= medSharesToRedeem;
         }
-
         if (highSharesToRedeem > 0) {
             highAssets = highRiskVault.redeem(
                 highSharesToRedeem,
@@ -237,7 +230,6 @@ contract VaultRouter is Ownable, ReentrancyGuard {
         }
 
         totalReceived = lowAssets + medAssets + highAssets;
-
         pos.totalDeposited =
             (pos.totalDeposited * (10000 - percentageBps)) /
             10000;
@@ -247,6 +239,11 @@ contract VaultRouter is Ownable, ReentrancyGuard {
         emit PartialWithdrawal(msg.sender, percentageBps, totalReceived);
     }
 
+    /**
+     * @notice Rebalances user's position according to their updated risk profile
+     * @dev Automatically harvests from all vaults before rebalancing to maximize user value
+     * @dev Resets cost basis to prevent permanent negative PnL
+     */
     function rebalance() external nonReentrant {
         if (!riskNFT.hasProfile(msg.sender)) revert NoProfile();
 
@@ -259,9 +256,42 @@ contract VaultRouter is Ownable, ReentrancyGuard {
             revert NoPosition();
         }
 
-        uint256 currentValue = getUserTotalValue(msg.sender);
-        if (currentValue == 0) revert ZeroAmount();
+        // STEP 1: Harvest all vaults FIRST
+        uint256 totalHarvested = _harvestAll();
 
+        // STEP 2: Withdraw everything and get total assets
+        uint256 totalAssets = _withdrawAllUserShares(oldPos);
+        if (totalAssets == 0) revert ZeroAmount();
+
+        // STEP 3: Deposit according to new risk profile
+        IRiskNFT.RiskProfile memory newProfile = riskNFT.getRiskProfile(
+            msg.sender
+        );
+        (
+            uint256 newLowShares,
+            uint256 newMedShares,
+            uint256 newHighShares
+        ) = _depositByProfile(totalAssets, newProfile);
+
+        // STEP 4: Update user position and reset cost basis
+        UserPosition storage pos = userPositions[msg.sender];
+        pos.lowShares = newLowShares;
+        pos.medShares = newMedShares;
+        pos.highShares = newHighShares;
+        pos.totalDeposited = totalAssets; // Reset cost basis
+        pos.depositTimestamp = block.timestamp;
+
+        emit Rebalanced(msg.sender, block.timestamp, totalHarvested);
+    }
+
+    /**
+     * @notice Withdraws all user shares from vaults
+     * @param oldPos User's current position
+     * @return totalAssets Total assets withdrawn
+     */
+    function _withdrawAllUserShares(
+        UserPosition memory oldPos
+    ) internal returns (uint256 totalAssets) {
         uint256 lowAssets = 0;
         uint256 medAssets = 0;
         uint256 highAssets = 0;
@@ -288,41 +318,86 @@ contract VaultRouter is Ownable, ReentrancyGuard {
             );
         }
 
-        uint256 totalAssets = lowAssets + medAssets + highAssets;
+        return lowAssets + medAssets + highAssets;
+    }
 
-        IRiskNFT.RiskProfile memory newProfile = riskNFT.getRiskProfile(
-            msg.sender
-        );
+    /**
+     * @notice Deposits assets according to risk profile
+     * @param totalAssets Total assets to allocate
+     * @param profile Risk profile with allocation percentages
+     * @return lowShares Shares received from low risk vault
+     * @return medShares Shares received from medium risk vault
+     * @return highShares Shares received from high risk vault
+     */
+    function _depositByProfile(
+        uint256 totalAssets,
+        IRiskNFT.RiskProfile memory profile
+    )
+        internal
+        returns (uint256 lowShares, uint256 medShares, uint256 highShares)
+    {
+        uint256 lowAlloc = (totalAssets * profile.lowPct) / 100;
+        uint256 medAlloc = (totalAssets * profile.medPct) / 100;
+        uint256 highAlloc = totalAssets - lowAlloc - medAlloc;
 
-        uint256 newLowAlloc = (totalAssets * newProfile.lowPct) / 100;
-        uint256 newMedAlloc = (totalAssets * newProfile.medPct) / 100;
-        uint256 newHighAlloc = totalAssets - newLowAlloc - newMedAlloc;
-
-        uint256 newLowShares = 0;
-        uint256 newMedShares = 0;
-        uint256 newHighShares = 0;
-
-        if (newLowAlloc > 0) {
-            depositToken.forceApprove(address(lowRiskVault), newLowAlloc);
-            newLowShares = lowRiskVault.deposit(newLowAlloc, address(this));
+        if (lowAlloc > 0) {
+            depositToken.forceApprove(address(lowRiskVault), lowAlloc);
+            lowShares = lowRiskVault.deposit(lowAlloc, address(this));
         }
 
-        if (newMedAlloc > 0) {
-            depositToken.forceApprove(address(medRiskVault), newMedAlloc);
-            newMedShares = medRiskVault.deposit(newMedAlloc, address(this));
+        if (medAlloc > 0) {
+            depositToken.forceApprove(address(medRiskVault), medAlloc);
+            medShares = medRiskVault.deposit(medAlloc, address(this));
         }
 
-        if (newHighAlloc > 0) {
-            depositToken.forceApprove(address(highRiskVault), newHighAlloc);
-            newHighShares = highRiskVault.deposit(newHighAlloc, address(this));
+        if (highAlloc > 0) {
+            depositToken.forceApprove(address(highRiskVault), highAlloc);
+            highShares = highRiskVault.deposit(highAlloc, address(this));
         }
 
-        UserPosition storage pos = userPositions[msg.sender];
-        pos.lowShares = newLowShares;
-        pos.medShares = newMedShares;
-        pos.highShares = newHighShares;
+        return (lowShares, medShares, highShares);
+    }
 
-        emit Rebalanced(msg.sender, block.timestamp);
+    /**
+     * @notice Harvests yield from all three vaults
+     * @dev Internal function called during rebalance, can also be called standalone
+     * @return totalHarvested Total yield harvested from all vaults
+     */
+    function _harvestAll() internal returns (uint256 totalHarvested) {
+        uint256 lowHarvest = 0;
+        uint256 medHarvest = 0;
+        uint256 highHarvest = 0;
+
+        try lowRiskVault.harvest() returns (uint256 h) {
+            lowHarvest = h;
+        } catch {}
+
+        try medRiskVault.harvest() returns (uint256 h) {
+            medHarvest = h;
+        } catch {}
+
+        try highRiskVault.harvest() returns (uint256 h) {
+            highHarvest = h;
+        } catch {}
+
+        totalHarvested = lowHarvest + medHarvest + highHarvest;
+
+        if (totalHarvested > 0) {
+            emit Harvested(lowHarvest, medHarvest, highHarvest, totalHarvested);
+        }
+
+        return totalHarvested;
+    }
+
+    /**
+     * @notice Manually harvest all vaults (callable by anyone if router is authorized)
+     * @dev Only works if VaultRouter is authorized as Nitrolite operator
+     * @return totalHarvested Total yield harvested from all vaults
+     */
+    function harvestAll() external returns (uint256 totalHarvested) {
+        totalHarvested = _harvestAll();
+        if (totalHarvested == 0) revert ZeroAmount();
+        return totalHarvested;
     }
 
     function getUserTotalValue(address user) public view returns (uint256) {

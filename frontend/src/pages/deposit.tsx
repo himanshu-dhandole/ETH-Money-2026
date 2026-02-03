@@ -310,6 +310,35 @@ export default function Deposit() {
     if (!address) return;
     setLoading(true);
     try {
+      toast.info("Harvesting yield from all vaults...");
+      const tx = await writeContract(config, {
+        address: VAULT,
+        abi: VAULT_ROUTER_ABI,
+        functionName: "harvestAll",
+        account: address,
+        gas: 5_000_000n,
+      });
+      const receipt = await waitForTransactionReceipt(config, { hash: tx });
+      if (receipt.status === "success") {
+        toast.success("Harvest successful! Yield collected from all vaults.");
+        await fetchUserData();
+        await fetchVaultData();
+      } else {
+        toast.error("Harvest failed");
+      }
+    } catch (err) {
+      toast.error("Harvest failed");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRebalance = async () => {
+    if (!address) return;
+    setLoading(true);
+    try {
+      toast.info("Rebalancing your position...");
       const tx = await writeContract(config, {
         address: VAULT,
         abi: VAULT_ROUTER_ABI,
@@ -317,15 +346,21 @@ export default function Deposit() {
         account: address,
         gas: 5_000_000n,
       });
-      const recipt = await waitForTransactionReceipt(config, { hash: tx });
-      if (recipt.status === "success") {
-        toast.success("Harvest successful!");
+      const receipt = await waitForTransactionReceipt(config, { hash: tx });
+      if (receipt.status === "success") {
+        toast.success(
+          "Rebalance successful! Position updated to match your risk profile.",
+        );
+        await fetchUserData();
+        await fetchVaultData();
       } else {
-        toast.error("Harvest failed");
+        toast.error("Rebalance failed");
       }
     } catch (err) {
-      toast.error("Harvest failed");
+      toast.error("Rebalance failed");
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -404,6 +439,47 @@ export default function Deposit() {
                   <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
                 )}
               </button>
+              <div className="glass-panel rounded-2xl p-8 mt-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Harvest Button */}
+                  <button
+                    onClick={handleHarvest}
+                    disabled={loading}
+                    className="group relative overflow-hidden bg-gradient-to-r from-green-500/10 to-green-600/10 hover:from-green-500/20 hover:to-green-600/20 border border-green-500/20 hover:border-green-500/40 rounded-xl p-6 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-left">
+                        <h4 className="text-lg font-bold text-white mb-1">
+                          Harvest Yield
+                        </h4>
+                        <p className="text-sm text-gray-400">
+                          Collect accumulated yield from all vaults
+                        </p>
+                      </div>
+                      <Gift className="w-8 h-8 text-green-400 group-hover:scale-110 transition-transform" />
+                    </div>
+                  </button>
+
+                  {/* Rebalance Button */}
+                  <button
+                    onClick={handleRebalance}
+                    disabled={loading}
+                    className="group relative overflow-hidden bg-gradient-to-r from-purple-500/10 to-purple-600/10 hover:from-purple-500/20 hover:to-purple-600/20 border border-purple-500/20 hover:border-purple-500/40 rounded-xl p-6 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-left">
+                        <h4 className="text-lg font-bold text-white mb-1">
+                          Rebalance
+                        </h4>
+                        <p className="text-sm text-gray-400">
+                          Update allocation to match risk profile
+                        </p>
+                      </div>
+                      <TrendingUp className="w-8 h-8 text-purple-400 group-hover:scale-110 transition-transform" />
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -532,10 +608,10 @@ export default function Deposit() {
               </p>
             </div>
           </div>
+
+          {/* Action Buttons Section */}
         </section>
       </div>
-      <button onClick={getUserTotalValue}>Get User Total Value</button>
-      <button onClick={handleHarvest}>Harvest</button>
     </DefaultLayout>
   );
 }

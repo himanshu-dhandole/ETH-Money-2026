@@ -123,9 +123,7 @@ export const RiskAssessmentModal = ({
       setAllocation({ low, mid, high });
       setIsCalculating(false);
       setStep("results");
-      toast.success("Risk profile calculated successfully!", {
-        description: `Low: ${low}%, Mid: ${mid}%, High: ${high}%`,
-      });
+      toast.success("Risk profile calculated");
     }, 2000);
   };
 
@@ -162,10 +160,8 @@ export const RiskAssessmentModal = ({
   };
 
   const handleMintNFT = () => {
-    const actionText = mode === "mint" ? "minting" : "update";
-    toast.success(`Risk NFT ${actionText} initiated!`, {
-      description: `Allocation: Low ${allocation.low}%, Mid ${allocation.mid}%, High ${allocation.high}%`,
-    });
+    const actionText = mode === "mint" ? "created" : "updated";
+    toast.success(`Risk profile ${actionText} successfully`);
     onSubmit(allocation);
     handleClose();
   };

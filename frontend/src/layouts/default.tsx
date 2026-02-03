@@ -175,7 +175,22 @@ export default function DefaultLayout({
         </div>
       </footer>
 
-      <Toaster theme="dark" position="top-right" richColors />
+      <Toaster
+        theme="dark"
+        position="top-center"
+        toastOptions={{
+          style: {
+            background: "rgba(22, 24, 29, 0.95)",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            backdropFilter: "blur(12px)",
+            color: "#fff",
+            borderRadius: "12px",
+            padding: "16px",
+          },
+          className: "toast-custom",
+          duration: 3000,
+        }}
+      />
     </div>
   );
 }

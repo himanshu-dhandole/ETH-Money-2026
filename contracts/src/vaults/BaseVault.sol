@@ -206,7 +206,18 @@ contract BaseVault is
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
 
-    function harvest() external nonReentrant onlyOwner returns (uint256) {
+    /**
+     * @notice Harvests yield from all strategies
+     * @dev Can be called by owner or authorized Nitrolite operators (e.g., VaultRouter)
+     * @return Net yield after fees
+     */
+    function harvest() external nonReentrant returns (uint256) {
+        // Allow owner OR Nitrolite operators (like VaultRouter) to harvest
+        require(
+            msg.sender == owner() || verifiedNitroliteOperators[msg.sender],
+            "Not authorized to harvest"
+        );
+
         uint256 balanceBefore = IERC20(asset()).balanceOf(address(this));
 
         for (uint256 i = 0; i < strategies.length; i++) {
@@ -239,6 +250,15 @@ contract BaseVault is
         uint256 totalVaultAssets = totalAssets();
         if (totalVaultAssets == 0) return;
 
+        // 🔑 CRITICAL: Harvest FIRST to collect all accumulated yield
+        // Without this, yield stays trapped in strategies during rebalancing
+        for (uint256 i = 0; i < strategies.length; i++) {
+            if (strategies[i].active) {
+                IStrategy(strategies[i].strategy).harvest();
+            }
+        }
+
+        // Then withdraw everything
         for (uint256 i = 0; i < strategies.length; i++) {
             if (strategies[i].active) {
                 IStrategy(strategies[i].strategy).withdrawAll();

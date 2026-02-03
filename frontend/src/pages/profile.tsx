@@ -92,9 +92,7 @@ export default function Profile() {
   // Effects
   useEffect(() => {
     if (isConfirmed) {
-      toast.success("Profile Updated", {
-        description: "Your risk strategy has been recalibrated.",
-      });
+      toast.success("Profile updated successfully");
       setShowUpdateModal(false);
       refetchProfile();
     }
@@ -102,9 +100,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (writeError) {
-      toast.error("Update Failed", {
-        description: writeError.message.split("\n")[0],
-      });
+      toast.error("Update failed. Please try again");
     }
   }, [writeError]);
 

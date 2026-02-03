@@ -7,4 +7,5 @@ interface IStrategy is IERC4626 {
     function withdrawAll() external returns (uint256);
     function harvest() external returns (uint256);
     function estimatedAPY() external view returns (uint256);
+    function previewTotalAssets() external view returns (uint256);
 }

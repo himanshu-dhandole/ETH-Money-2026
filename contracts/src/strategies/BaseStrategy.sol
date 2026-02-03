@@ -22,7 +22,7 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
     uint256 public lastHarvest;
     uint256 public totalHarvested;
     uint256 public baseAPY;
-    uint256 public yieldPeriod = 365 days;
+    uint256 public yieldPeriod = 3600;
     uint256 public lastYieldUpdate;
     uint256 public accumulatedYield;
     uint256 public lastRandomFactor = 100;
@@ -112,6 +112,37 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
         return baseAPY;
     }
 
+    /**
+     * @notice Preview function for UI - simulates yield without modifying state
+     * @dev UI should use this for smooth yield animations
+     * @return Estimated total assets including simulated pending yield
+     */
+    function previewTotalAssets() external view returns (uint256) {
+        uint256 baseAssets = IERC20(asset()).balanceOf(address(this));
+        uint256 timeElapsed = block.timestamp - lastYieldUpdate;
+
+        if (timeElapsed == 0 || baseAssets == 0) {
+            return baseAssets;
+        }
+
+        // Simulate yield calculation without state modification
+        uint256 baseYield = (baseAssets * baseAPY * timeElapsed) /
+            (yieldPeriod * 10000);
+
+        // Use last known random factor for estimation
+        uint256 simulatedYield = (baseYield * lastRandomFactor) / 100;
+
+        return baseAssets + simulatedYield;
+    }
+
+    /**
+     * @notice Returns REAL balance only - truth source for withdrawals
+     * @dev Never returns simulated/pending yield - only actual balance
+     */
+    function totalAssets() public view virtual override returns (uint256) {
+        return IERC20(asset()).balanceOf(address(this));
+    }
+
     function withdrawAll()
         external
         virtual
@@ -139,10 +170,6 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
     ) public virtual override onlyVault nonReentrant returns (uint256) {
         _generateYield();
         return super.withdraw(assets, receiver, owner);
-    }
-
-    function totalAssets() public view virtual override returns (uint256) {
-        return IERC20(asset()).balanceOf(address(this));
     }
 
     function harvest() external onlyVault nonReentrant returns (uint256) {

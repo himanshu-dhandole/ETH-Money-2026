@@ -12,6 +12,11 @@ import "../src/VaultRouter.sol";
  * @title DeployScript
  * @notice Deploys the complete Aura protocol with 3 vaults and 9 strategies
  * @dev Run with: forge script script/Deploy.s.sol:DeployScript --broadcast --rpc-url <RPC>
+ *
+ * DEPLOYMENT STRATEGY:
+ * - Deployer retains vault ownership for admin control
+ * - Router gets Nitrolite operator role to call harvest during rebalancing
+ * - This provides both user convenience and admin flexibility
  */
 contract Deploy is Script {
     VirtualUSDC public usdc;
@@ -33,7 +38,7 @@ contract Deploy is Script {
         // Deploy core infrastructure
         _deployCoreInfrastructure();
 
-        // Deploy vaults
+        // Deploy vaults (deployer remains owner)
         _deployVaults(deployer);
 
         // Deploy strategies
@@ -44,11 +49,18 @@ contract Deploy is Script {
         // Deploy router
         _deployRouter();
 
-        // Authorize Nitrolite operator (Keeper)
+        // Authorize Nitrolite operator (Keeper) from backend
         address operator = vm.envAddress("KEEPER_ADDRESS");
         lowVault.setNitroliteOperator(operator, true);
         medVault.setNitroliteOperator(operator, true);
         highVault.setNitroliteOperator(operator, true);
+
+        // 🔑 KEY CHANGE: Authorize VaultRouter to harvest
+        // This allows users to trigger harvest during rebalancing
+        // while deployer retains full ownership for admin operations
+        lowVault.setNitroliteOperator(address(router), true);
+        medVault.setNitroliteOperator(address(router), true);
+        highVault.setNitroliteOperator(address(router), true);
 
         vm.stopBroadcast();
 
@@ -229,6 +241,10 @@ contract Deploy is Script {
         console.log("  Low Risk:        ", address(lowVault));
         console.log("  Medium Risk:     ", address(medVault));
         console.log("  High Risk:       ", address(highVault));
+        console.log("\nIMPORTANT NOTES:");
+        console.log("  - Deployer retains vault ownership for admin control");
+        console.log("  - VaultRouter is authorized as Nitrolite operator");
+        console.log("  - This allows harvest during user rebalancing");
         console.log("========================================\n");
     }
 }
