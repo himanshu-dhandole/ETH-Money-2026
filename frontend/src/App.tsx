@@ -10,6 +10,7 @@ import Profile from "./pages/profile";
 import VaultDashboard from "./pages/vault";
 import Portfolio from "./pages/portfolio";
 import { Navbar } from "./components/navbar";
+import Test from "./pages/test";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
         <Route element={<Profile />} path="/profile" />
         <Route element={<VaultDashboard />} path="/vault" />
         <Route element={<Portfolio />} path="/portfolio" />
+        <Route element={<Test />} path="/test" />
       </Routes>
     </>
   );

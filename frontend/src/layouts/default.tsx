@@ -32,7 +32,7 @@ export default function DefaultLayout({
               </Link>
               <p className="text-sm text-gray-400 leading-relaxed max-w-xs">
                 Institutional-grade yield aggregation with tokenized risk
-                management on Polygon.
+                management on Arc.
               </p>
               {/* Social Links */}
               <div className="flex items-center gap-3 mt-2">
@@ -166,8 +166,8 @@ export default function DefaultLayout({
             </p>
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <span>Built on</span>
-              <span className="px-2 py-1 rounded-md bg-[#8247e5]/10 border border-[#8247e5]/20 text-[#8247e5] font-medium">
-                Polygon
+              <span className="px-2 py-1 rounded-md bg-[#135bec]/10 border border-[#135bec]/20 text-[#135bec] font-medium">
+                Arc Testnet
               </span>
             </div>
           </div>

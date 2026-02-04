@@ -132,7 +132,7 @@ const AuraVaultLanding = () => {
                 <div className="flex items-center gap-2 w-fit px-3 py-1 rounded-full border border-[#135bec]/20 bg-[#135bec]/5 backdrop-blur-sm">
                   <span className="flex h-1.5 w-1.5 rounded-full bg-[#135bec] animate-pulse"></span>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-[#135bec]">
-                    Polygon testnet Live
+                    Arc testnet Live
                   </span>
                 </div>
 
