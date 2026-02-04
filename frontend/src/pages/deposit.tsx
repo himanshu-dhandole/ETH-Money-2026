@@ -44,7 +44,6 @@ const formatNumber = (val: string | number, decimals: number = 2) => {
 export default function Deposit() {
   const { address } = useAccount();
   const [loading, setLoading] = useState(false);
-  const [airdropLoading, setAirdropLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"deposit" | "withdraw">("deposit");
 
   // State - Initialized with zeros
@@ -96,10 +95,10 @@ export default function Deposit() {
       const [, , , , , , totalValue, totalDeposited] = position;
 
       setUserState({
-        USDCBalance: formatUnits(balance, 18),
-        totalDeposited: formatUnits(totalDeposited, 18),
-        userValue: formatUnits(totalValue, 18),
-        auraBalance: formatUnits(totalValue, 18),
+        USDCBalance: formatUnits(balance, 6),
+        totalDeposited: formatUnits(totalDeposited, 6),
+        userValue: formatUnits(totalValue, 6),
+        auraBalance: formatUnits(totalValue, 6),
       });
     } catch (err) {
       console.error("Error fetching user data:", err);
@@ -130,50 +129,13 @@ export default function Deposit() {
         (Number(lowAPY) + Number(medAPY) + Number(highAPY)) / 3 / 100; // Assuming APY is in bps
 
       setVaultState({
-        tvl: formatUnits(totalValueLocked, 18),
+        tvl: formatUnits(totalValueLocked, 6),
         apy: averageAPY.toFixed(1),
       });
     } catch (err) {
       console.error("Error fetching vault data:", err);
     }
   }, []);
-
-  // Airdrop USDC
-  const handleAirdrop = useCallback(async () => {
-    if (!address) return;
-
-    try {
-      const hasClaimed = (await readContract(config, {
-        address: USDC,
-        abi: VIRTUAL_USDC_ABI,
-        functionName: "hasClaimed",
-        args: [address],
-      })) as boolean;
-
-      if (hasClaimed) {
-        toast.error("Already claimed test tokens");
-        return;
-      }
-
-      setAirdropLoading(true);
-      const toastId = toast.loading("Claiming test tokens...");
-
-      const tx = await writeContract(config, {
-        address: USDC,
-        abi: VIRTUAL_USDC_ABI,
-        functionName: "airdrop",
-        account: address,
-      });
-      await waitForTransactionReceipt(config, { hash: tx });
-      toast.success("10,000 vUSDC claimed successfully", { id: toastId });
-      await fetchUserData();
-    } catch (err) {
-      toast.error("Failed to claim tokens");
-      console.error(err);
-    } finally {
-      setAirdropLoading(false);
-    }
-  }, [address, fetchUserData]);
 
   // Deposit
   const handleDeposit = useCallback(async () => {
@@ -183,7 +145,7 @@ export default function Deposit() {
     const toastId = toast.loading("Preparing deposit...");
 
     try {
-      const amount = parseUnits(amountInput, 18);
+      const amount = parseUnits(amountInput, 6);
 
       const allowance = (await readContract(config, {
         address: USDC,
@@ -233,8 +195,8 @@ export default function Deposit() {
     const toastId = toast.loading("Processing withdrawal...");
 
     try {
-      const inputAmount = parseUnits(amountInput, 18);
-      const totalValue = parseUnits(userState.userValue, 18);
+      const inputAmount = parseUnits(amountInput, 6);
+      const totalValue = parseUnits(userState.userValue, 6);
 
       let tx;
       if (inputAmount >= totalValue) {
@@ -489,24 +451,25 @@ export default function Deposit() {
               <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="bg-[#135bec] text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
-                    New User
+                    Get USDC
                   </span>
                 </div>
                 <h3 className="text-xl font-bold text-white mb-1">
-                  Get 10,000 USDC Test Tokens
+                  Get Arc Testnet USDC
                 </h3>
                 <p className="text-gray-400 text-sm mb-4">
-                  Start testing the vault immediately without spending real
-                  money.
+                  Get real USDC on Arc testnet from Circle's faucet to start
+                  testing.
                 </p>
-                <button
-                  onClick={handleAirdrop}
-                  disabled={airdropLoading}
-                  className="h-10 px-4 bg-white text-[#0B0C10] text-sm font-bold rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 disabled:opacity-50"
+                <a
+                  href="https://faucet.circle.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-10 px-4 bg-white text-[#0B0C10] text-sm font-bold rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 w-fit"
                 >
                   <Plus className="w-4 h-4 bg-[#0B0C10] text-white rounded-full p-0.5" />
-                  Claim Free Tokens
-                </button>
+                  Get USDC from Faucet
+                </a>
               </div>
             </div>
 
@@ -519,7 +482,9 @@ export default function Deposit() {
                     : "Withdraw Amount"}
                 </label>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <span>{activeTab === "deposit" ? "Wallet:" : "Available:"}</span>
+                  <span>
+                    {activeTab === "deposit" ? "Wallet:" : "Available:"}
+                  </span>
                   <span className="font-mono text-white">
                     {activeTab === "deposit"
                       ? `$${formatNumber(userState.USDCBalance)}`

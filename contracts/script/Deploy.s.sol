@@ -2,26 +2,37 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import "../src/tokens/VirtualUSDC.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../src/RiskNFT.sol";
 import "../src/vaults/BaseVault.sol";
 import "../src/strategies/BaseStrategy.sol";
 import "../src/VaultRouter.sol";
+import "../src/YieldReserve.sol";
 
 /**
  * @title DeployScript
  * @notice Deploys the complete Aura protocol with 3 vaults and 9 strategies
- * @dev Run with: forge script script/Deploy.s.sol:DeployScript --broadcast --rpc-url <RPC>
+ * @dev Run with: forge script script/Deploy.s.sol:Deploy --broadcast --rpc-url <RPC>
+ *
+ * PREREQUISITES:
+ * 1. Deploy YieldReserve ONCE using DeployYieldReserve.s.sol
+ * 2. Set USDC_ADDRESS (Arc native USDC) and YIELD_RESERVE_ADDRESS in .env
+ * 3. Then run this script
  *
  * DEPLOYMENT STRATEGY:
  * - Deployer retains vault ownership for admin control
  * - Router gets Nitrolite operator role to call harvest during rebalancing
- * - This provides both user convenience and admin flexibility
+ * - YieldReserve is reused across deployments (not redeployed)
+ * - Uses native Arc USDC (6 decimals) - NOT VirtualUSDC
  */
 contract Deploy is Script {
-    VirtualUSDC public usdc;
+    // Native Arc USDC address (6 decimals)
+    address constant ARC_USDC = 0x3600000000000000000000000000000000000000;
+
+    IERC20 public usdc;
     RiskNFT public riskNFT;
     StrategyFactory public factory;
+    YieldReserve public yieldReserve;
     BaseVault public lowVault;
     BaseVault public medVault;
     BaseVault public highVault;
@@ -35,8 +46,11 @@ contract Deploy is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy core infrastructure
-        _deployCoreInfrastructure();
+        // Load existing USDC and YieldReserve (or deploy if not set)
+        _loadOrDeployCoreInfrastructure();
+
+        // Deploy new RiskNFT and StrategyFactory
+        _deployNewInfrastructure();
 
         // Deploy vaults (deployer remains owner)
         _deployVaults(deployer);
@@ -48,6 +62,9 @@ contract Deploy is Script {
 
         // Deploy router
         _deployRouter();
+
+        // Configure YieldReserve with new strategies
+        _configureYieldReserve();
 
         // Authorize Nitrolite operator (Keeper) from backend
         address operator = deployer;
@@ -67,10 +84,46 @@ contract Deploy is Script {
         _printDeploymentSummary();
     }
 
-    function _deployCoreInfrastructure() internal {
-        usdc = new VirtualUSDC();
-        console.log("USDC deployed at:", address(usdc));
+    function _loadOrDeployCoreInfrastructure() internal {
+        // Load USDC from environment (should be Arc native USDC)
+        address usdcAddress = vm.envOr("USDC_ADDRESS", ARC_USDC);
 
+        console.log("[OK] Using Arc native USDC at:", usdcAddress);
+        usdc = IERC20(usdcAddress);
+
+        // Verify it's the correct USDC
+        if (usdcAddress != ARC_USDC) {
+            console.log("[!] WARNING: Using non-standard USDC address!");
+            console.log("[!] Expected Arc USDC:", ARC_USDC);
+        }
+
+        // Load YieldReserve from environment (REQUIRED)
+        address yieldReserveAddress = vm.envOr(
+            "YIELD_RESERVE_ADDRESS",
+            address(0)
+        );
+
+        if (yieldReserveAddress != address(0)) {
+            console.log(
+                "[OK] Using existing YieldReserve at:",
+                yieldReserveAddress
+            );
+            yieldReserve = YieldReserve(yieldReserveAddress);
+
+            // Verify it's funded
+            (uint256 available, , ) = yieldReserve.getStats();
+            console.log("   Reserve balance:", available / 1e6, "USDC");
+        } else {
+            console.log("[!] WARNING: No YIELD_RESERVE_ADDRESS found!");
+            console.log("[!] Please deploy YieldReserve first using:");
+            console.log(
+                "[!] forge script script/DeployYieldReserve.s.sol:DeployYieldReserve --broadcast"
+            );
+            revert("YIELD_RESERVE_ADDRESS not set in .env");
+        }
+    }
+
+    function _deployNewInfrastructure() internal {
         riskNFT = new RiskNFT();
         console.log("RiskNFT deployed at:", address(riskNFT));
 
@@ -226,25 +279,74 @@ contract Deploy is Script {
         console.log("\nVaultRouter deployed at:", address(router));
     }
 
+    function _configureYieldReserve() internal {
+        console.log("\n--- Configuring Yield Reserve ---");
+        console.log("Using YieldReserve at:", address(yieldReserve));
+
+        // Get all strategies and authorize them
+        address[] memory allStrategies = new address[](9);
+        uint256 idx = 0;
+
+        // Collect all strategy addresses
+        for (uint256 i = 0; i < factory.getStrategiesCount(); i++) {
+            allStrategies[idx++] = factory.allStrategies(i);
+        }
+
+        // Batch authorize all strategies
+        yieldReserve.batchAuthorizeStrategies(allStrategies, true);
+        console.log("  [OK] Authorized", allStrategies.length, "strategies");
+
+        // Set yield reserve in all strategies
+        for (uint256 i = 0; i < allStrategies.length; i++) {
+            BaseStrategy(allStrategies[i]).setYieldReserve(
+                address(yieldReserve)
+            );
+        }
+        console.log("  [OK] Configured all strategies with YieldReserve");
+
+        // Print reserve stats
+        (uint256 available, uint256 distributed, ) = yieldReserve.getStats();
+        console.log("  [Stats] Reserve balance:", available / 1e6, "USDC");
+        console.log("  [Stats] Total distributed:", distributed / 1e6, "USDC");
+    }
+
     function _setupStrategy(address strategy, address vault) internal {
         BaseStrategy(strategy).setVault(vault);
-        usdc.addMinter(strategy);
+        // [X] REMOVED: usdc.addMinter(strategy);
+        // Strategies no longer mint - they use YieldReserve
     }
 
     function _printDeploymentSummary() internal view {
         console.log("\n========== DEPLOYMENT SUMMARY ==========");
-        console.log("USDC:              ", address(usdc));
+        console.log("Arc USDC:          ", address(usdc));
         console.log("RiskNFT:           ", address(riskNFT));
         console.log("StrategyFactory:   ", address(factory));
+        console.log("YieldReserve:      ", address(yieldReserve));
         console.log("VaultRouter:       ", address(router));
         console.log("\nVaults:");
         console.log("  Low Risk:        ", address(lowVault));
         console.log("  Medium Risk:     ", address(medVault));
         console.log("  High Risk:       ", address(highVault));
+
+        // Print reserve stats
+        (
+            uint256 available,
+            uint256 distributed,
+            uint256 efficiency
+        ) = yieldReserve.getStats();
+        console.log("\nYield Reserve Stats:");
+        console.log("  Available:       ", available / 1e6, "USDC");
+        console.log("  Distributed:     ", distributed / 1e6, "USDC");
+        console.log("  Efficiency:      ", efficiency, "%");
+
         console.log("\nIMPORTANT NOTES:");
+        console.log("  - Using native Arc USDC (6 decimals)");
+        console.log("  - Users can bridge USDC from any chain via Circle CCTP");
         console.log("  - Deployer retains vault ownership for admin control");
         console.log("  - VaultRouter is authorized as Nitrolite operator");
         console.log("  - This allows harvest during user rebalancing");
+        console.log("  - YieldReserve funded for realistic yield simulation");
+        console.log("  - Strategies draw from reserve instead of minting");
         console.log("========================================\n");
     }
 }

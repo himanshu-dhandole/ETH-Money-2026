@@ -5,7 +5,7 @@ import { Link } from "@heroui/link";
 import { useLocation } from "react-router-dom";
 import { ConnectButton } from "thirdweb/react";
 import { createWallet } from "thirdweb/wallets";
-import { client } from "@/config/thirdwebConfig";
+import { client, arcTestnet } from "@/config/thirdwebConfig";
 import { Diamond, Menu, X } from "lucide-react";
 
 const wallets = [
@@ -102,6 +102,7 @@ export const Navbar = () => {
             <ConnectButton
               client={client}
               wallets={wallets}
+              chain={arcTestnet}
               theme="dark"
               connectButton={{
                 label: "Connect",
@@ -182,6 +183,7 @@ export const Navbar = () => {
                 <ConnectButton
                   client={client}
                   wallets={wallets}
+                  chain={arcTestnet}
                   theme="dark"
                   connectButton={{
                     label: "Connect Wallet",

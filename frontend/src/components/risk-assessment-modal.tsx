@@ -224,11 +224,10 @@ export const RiskAssessmentModal = ({
                       <button
                         key={option.value}
                         onClick={() => handleAnswerSelect(q.id, option.value)}
-                        className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all ${
-                          answers[q.id] === option.value
+                        className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all ${answers[q.id] === option.value
                             ? "bg-[#135bec]/20 border-[#135bec]/50 text-white"
                             : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
-                        } border`}
+                          } border`}
                       >
                         {option.label}
                       </button>
@@ -242,11 +241,10 @@ export const RiskAssessmentModal = ({
             <button
               onClick={calculateRiskProfile}
               disabled={!allQuestionsAnswered || isCalculating}
-              className={`w-full glass-button h-14 px-8 rounded-full flex items-center justify-center gap-3 transition-all duration-300 ${
-                !allQuestionsAnswered || isCalculating
+              className={`w-full glass-button h-14 px-8 rounded-full flex items-center justify-center gap-3 transition-all duration-300 ${!allQuestionsAnswered || isCalculating
                   ? "opacity-50 cursor-not-allowed"
                   : "hover:scale-[1.02]"
-              }`}
+                }`}
             >
               {isCalculating ? (
                 <>
@@ -387,11 +385,10 @@ export const RiskAssessmentModal = ({
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Total Allocation</span>
                 <span
-                  className={`text-lg font-bold ${
-                    allocation.low + allocation.mid + allocation.high === 100
+                  className={`text-lg font-bold ${allocation.low + allocation.mid + allocation.high === 100
                       ? "text-green-500"
                       : "text-red-500"
-                  }`}
+                    }`}
                 >
                   {allocation.low + allocation.mid + allocation.high}%
                 </span>
@@ -411,11 +408,10 @@ export const RiskAssessmentModal = ({
                 disabled={
                   allocation.low + allocation.mid + allocation.high !== 100
                 }
-                className={`flex-1 glass-button h-14 px-6 rounded-full flex items-center justify-center gap-3 transition-all duration-300 ${
-                  allocation.low + allocation.mid + allocation.high !== 100
+                className={`flex-1 glass-button h-14 px-6 rounded-full flex items-center justify-center gap-3 transition-all duration-300 ${allocation.low + allocation.mid + allocation.high !== 100
                     ? "opacity-50 cursor-not-allowed"
                     : "hover:scale-[1.02]"
-                }`}
+                  }`}
               >
                 <Shield className="w-5 h-5 text-[#135bec]" />
                 <span className="text-sm font-semibold text-white">

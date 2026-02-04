@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../interfaces/IVirtualUSDC.sol";
 import "../interfaces/IStrategy.sol";
+import "../interfaces/IYieldReserve.sol";
 
 abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -17,8 +18,10 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
     error InvalidPeriod();
     error MinFactorTooHigh();
     error RangeTooWide();
+    error InvalidYieldReserve();
 
     address public vault;
+    address public yieldReserve;
     uint256 public lastHarvest;
     uint256 public totalHarvested;
     uint256 public baseAPY;
@@ -35,6 +38,11 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
     event VaultUpdated(address indexed oldVault, address indexed newVault);
     event BaseAPYUpdated(uint256 oldAPY, uint256 newAPY);
     event YieldPeriodUpdated(uint256 oldPeriod, uint256 newPeriod);
+    event YieldReserveUpdated(
+        address indexed oldReserve,
+        address indexed newReserve
+    );
+    event YieldReserveFailed(uint256 requestedAmount, uint256 availableReserve);
 
     modifier onlyVault() {
         if (msg.sender != vault) revert OnlyVault();
@@ -64,6 +72,13 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
         address oldVault = vault;
         vault = _vault;
         emit VaultUpdated(oldVault, _vault);
+    }
+
+    function setYieldReserve(address _yieldReserve) external onlyOwner {
+        if (_yieldReserve == address(0)) revert InvalidYieldReserve();
+        address oldReserve = yieldReserve;
+        yieldReserve = _yieldReserve;
+        emit YieldReserveUpdated(oldReserve, _yieldReserve);
     }
 
     function setBaseAPY(uint256 _baseAPY) external onlyOwner {
@@ -99,13 +114,27 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
         lastRandomFactor = randomFactor;
 
         uint256 yieldAmount = (baseYield * randomFactor) / 100;
-        if (yieldAmount > 0) {
-            IVirtualUSDC(address(asset())).mint(address(this), yieldAmount);
+
+        // ✅ Request yield from reserve instead of minting
+        if (yieldAmount > 0 && yieldReserve != address(0)) {
+            try
+                IYieldReserve(yieldReserve).distributeYield(
+                    address(this),
+                    yieldAmount
+                )
+            {
+                accumulatedYield += yieldAmount;
+                emit YieldGenerated(yieldAmount);
+            } catch {
+                // Reserve empty or insufficient - emit event for monitoring
+                uint256 available = IYieldReserve(yieldReserve)
+                    .availableReserve();
+                emit YieldReserveFailed(yieldAmount, available);
+                // Continue without generating yield
+            }
         }
 
-        accumulatedYield += yieldAmount;
         lastYieldUpdate = block.timestamp;
-        emit YieldGenerated(yieldAmount);
     }
 
     function estimatedAPY() external view virtual returns (uint256) {
