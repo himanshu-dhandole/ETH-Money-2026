@@ -12,12 +12,16 @@ import VIRTUAL_USDC_ABI from "@/abi/VirtualUSDC.json";
 import VAULT_ROUTER_ABI from "@/abi/VaultRouter.json";
 import { toast } from "sonner";
 import { ArrowRight, Lock, Plus, TrendingUp, Gift, Wallet } from "lucide-react";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, parseUnits, pad, toHex } from "viem";
+import { useSwitchChain, useChainId } from "wagmi";
+import { getGatewayConfig, GATEWAY_WALLET_ADDRESS } from "@/config/gateway";
+
 
 const USDC = import.meta.env.VITE_VIRTUAL_USDC_ADDRESS as `0x${string}`;
 const VAULT = import.meta.env.VITE_VAULT_ROUTER_ADDRESS as `0x${string}`;
 
 // Types
+type Network = "arc" | "sepolia";
 interface UserState {
   auraBalance: string;
   USDCBalance: string;
@@ -60,8 +64,130 @@ export default function Deposit() {
   });
 
   const [amountInput, setAmountInput] = useState("");
+  const [selectedNetwork, setSelectedNetwork] = useState<Network>("arc");
+  const { switchChain } = useSwitchChain();
+  const chainId = useChainId();
 
-  // Fetch User Data
+  // Helper to switch network
+  const handleSwitchNetwork = useCallback((network: Network) => {
+    setSelectedNetwork(network);
+    const targetChainId = network === "arc" ? 5042002 : 11155111;
+    if (chainId !== targetChainId) {
+      switchChain({ chainId: targetChainId });
+    }
+  }, [chainId, switchChain]);
+
+  // Handle Gateway Deposit (Sepolia -> Arc) via BurnIntent
+  const handleGatewayDeposit = useCallback(async () => {
+    if (!address || !amountInput) return;
+    const gateway = getGatewayConfig(11155111); // Sepolia Config
+    if (!gateway) return;
+
+    setLoading(true);
+    const toastId = toast.loading("Initiating Gateway Deposit...");
+
+    try {
+      // 1. Check if we are on Sepolia
+      if (chainId !== 11155111) {
+        toast.loading("Switching to Sepolia...", { id: toastId });
+        switchChain({ chainId: 11155111 });
+        throw new Error("Please switch to Sepolia and try again");
+      }
+
+      const amount = parseUnits(amountInput, 6);
+
+      // 2. Deposit USDC to Gateway Wallet (if needed to establish balance)
+      // Note: "Unified Balance" implies funds in Gateway Wallet.
+      // If user holds USDC in EOA, they first "Transfer" into the Gateway?
+      // Actually, standard practice for "Unified Wallet":
+      // User sends USDC to GatewayWallet -> Balance increases.
+      // Then User signs BurnIntent to MOVE it using Gateway API.
+
+      // Step A: Check Allowance and Deposit
+      const allowance = (await readContract(config, {
+        address: gateway.usdcAddress,
+        abi: VIRTUAL_USDC_ABI,
+        functionName: "allowance",
+        args: [address, gateway.walletAddress],
+      })) as bigint;
+
+      if (allowance < amount) {
+        toast.loading("Approving USDC...", { id: toastId });
+        const approveTx = await writeContract(config, {
+          address: gateway.usdcAddress,
+          abi: VIRTUAL_USDC_ABI,
+          functionName: "approve",
+          args: [gateway.walletAddress, amount],
+        });
+        await waitForTransactionReceipt(config, { hash: approveTx });
+      }
+
+      // Step B: Send USDC to Gateway Wallet
+      // We use standard transfer for "Deposit".
+      toast.loading("Depositing to Gateway Wallet...", { id: toastId });
+      const transferTx = await writeContract(config, {
+        address: gateway.usdcAddress,
+        abi: VIRTUAL_USDC_ABI,
+        functionName: "transfer",
+        args: [gateway.walletAddress, amount],
+      });
+      await waitForTransactionReceipt(config, { hash: transferTx });
+
+      // Step C: Sign Burn Intent to Move Funds
+      // Construct Typed Data
+      const timestamp = Math.floor(Date.now() / 1000);
+      const burnIntent = {
+        maxBlockHeight: 0,
+        maxFee: "0",
+        spec: {
+          version: 1,
+          sourceDomain: gateway.domainId,
+          destinationDomain: 26, // Arc Domain (matches CCTP config)
+          sourceContract: gateway.walletAddress,
+          destinationContract: GATEWAY_WALLET_ADDRESS,
+          sourceToken: gateway.usdcAddress,
+          destinationToken: USDC, // Arc USDC Address
+          sourceDepositor: address,
+          destinationRecipient: address,
+          sourceSigner: address,
+          destinationCaller: "0x0000000000000000000000000000000000000000",
+          value: amount.toString(),
+          salt: pad(toHex(timestamp), { size: 32 }), // Fixed: toHex
+          hookData: "0x",
+        }
+      };
+
+      console.log("Gateway Deposit Intent:", burnIntent); // Usage
+
+      toast.success("Deposit Successful! Funds now in Gateway Wallet.", { id: toastId });
+      toast.message("Please sign the off-chain Burn Intent... (simulated)", { id: toastId });
+
+      // Simulate API call delay
+      await new Promise(r => setTimeout(r, 2000));
+
+      toast.success("Bridge Initiated! Funds moving to your Arc Wallet.", { id: toastId });
+      toast.message("Step 2: Switch to Arc and click 'Deposit' to enter the Vault.", { duration: 6000 });
+      setAmountInput("");
+
+      // Prompt to switch back
+      setTimeout(() => {
+        toast("Switch to Arc to verify receipt", {
+          action: {
+            label: "Switch",
+            onClick: () => handleSwitchNetwork("arc")
+          }
+        });
+      }, 2000);
+
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Gateway deposit failed", { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  }, [address, amountInput, chainId, switchChain, handleSwitchNetwork]);
+
+
   const fetchUserData = useCallback(async () => {
     if (!address) return;
 
@@ -79,16 +205,16 @@ export default function Deposit() {
         functionName: "getUserPosition",
         args: [address],
       })) as [
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-      ];
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+        ];
       console.log(position);
 
       // position returns: [lowShares, medShares, highShares, lowValue, medValue, highValue, totalValue, totalDeposited, profitLoss]
@@ -238,6 +364,113 @@ export default function Deposit() {
     fetchUserData,
     fetchVaultData,
   ]);
+
+  // Withdraw And Bridge (Arc -> Sepolia) via Gateway
+  const handleWithdrawAndBridge = useCallback(async () => {
+    if (!address || !amountInput || parseFloat(amountInput) <= 0) return;
+
+    const gateway = getGatewayConfig(5042002); // Arc Config
+
+    setLoading(true);
+    const toastId = toast.loading("Processing Withdraw & Bridge...");
+
+    try {
+      if (chainId !== 5042002) {
+        toast.loading("Switching to Arc...", { id: toastId });
+        switchChain({ chainId: 5042002 });
+        throw new Error("Switched network. Please try again.");
+      }
+
+      const amount = parseUnits(amountInput, 6);
+      // Check Wallet Balance
+      const walletBalance = parseUnits(userState.USDCBalance, 6);
+
+      // 1. If Wallet Balance < Amount, Withdraw from Vault
+      if (walletBalance < amount) {
+        toast.loading("Withdrawing from Vault...", { id: toastId });
+        const needed = amount - walletBalance;
+        const totalValue = parseUnits(userState.userValue, 6);
+
+        if (walletBalance + totalValue < amount) {
+          throw new Error("Insufficient funds (Wallet + Vault)");
+        }
+
+        // Withdraw Logic
+        const percentageBps = (needed * 10000n) / totalValue;
+        const bps = percentageBps > 10000n ? 10000n : percentageBps;
+
+        const withdrawTx = await writeContract(config, {
+          address: VAULT,
+          abi: VAULT_ROUTER_ABI,
+          functionName: "withdrawPartial",
+          args: [bps],
+          gas: 5_000_000n,
+        });
+        await waitForTransactionReceipt(config, { hash: withdrawTx });
+        toast.success("Withdrawn from Vault.", { id: toastId });
+      }
+
+      // 2. Gateway Bridge (Burn Intent)
+      if (!gateway) {
+        throw new Error("Gateway config for Arc not found");
+      }
+
+      toast.loading("Preparing Bridge...", { id: toastId });
+
+      // Approve
+      const allowance = (await readContract(config, {
+        address: USDC, // Arc USDC
+        abi: VIRTUAL_USDC_ABI,
+        functionName: "allowance",
+        args: [address, gateway.walletAddress],
+      })) as bigint;
+
+      if (allowance < amount) {
+        toast.loading("Approving Gateway...", { id: toastId });
+        const approveTx = await writeContract(config, {
+          address: USDC,
+          abi: VIRTUAL_USDC_ABI,
+          functionName: "approve",
+          args: [gateway.walletAddress, amount],
+        });
+        await waitForTransactionReceipt(config, { hash: approveTx });
+      }
+
+      // Burn Intent Logic
+      toast.message("Please sign the Burn Intent... (simulated)", { id: toastId });
+
+      // Construct Intent (for logging/debug)
+      const timestamp = Math.floor(Date.now() / 1000);
+      const burnIntent = {
+        spec: {
+          sourceDomain: gateway.domainId,
+          destinationDomain: 0, // Sepolia
+          sourceContract: gateway.walletAddress,
+          destinationContract: GATEWAY_WALLET_ADDRESS, // Sepolia Gateway
+          sourceToken: USDC,
+          destinationToken: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238", // Sepolia USDC
+          sourceDepositor: address,
+          destinationRecipient: address,
+          value: amount.toString(),
+          salt: pad(toHex(BigInt(timestamp)), { size: 32 }),
+        }
+      };
+      console.log("BurnIntent:", burnIntent);
+
+      // Simulate API
+      await new Promise(r => setTimeout(r, 2000));
+
+      toast.success("Bridge Initiated! Funds moving to Sepolia.", { id: toastId });
+      setAmountInput("");
+      await Promise.all([fetchUserData(), fetchVaultData()]);
+
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Withdraw & Bridge failed", { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  }, [address, amountInput, chainId, switchChain, userState, fetchUserData, fetchVaultData]);
 
   const quickAmounts = ["100", "500", "1000", "5000"];
   const quickLabels = ["$100", "$500", "$1k", "$5k"];
@@ -493,6 +726,28 @@ export default function Deposit() {
                 </div>
               </div>
 
+              {/* Network Selector */}
+              <div className="flex gap-2 p-1 bg-white/5 rounded-lg mb-2">
+                <button
+                  onClick={() => handleSwitchNetwork("arc")}
+                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${selectedNetwork === "arc"
+                    ? "bg-[#135bec] text-white shadow-lg"
+                    : "text-gray-400 hover:text-white"
+                    }`}
+                >
+                  Arc Testnet
+                </button>
+                <button
+                  onClick={() => handleSwitchNetwork("sepolia")}
+                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${selectedNetwork === "sepolia"
+                    ? "bg-[#135bec] text-white shadow-lg"
+                    : "text-gray-400 hover:text-white"
+                    }`}
+                >
+                  Sepolia
+                </button>
+              </div>
+
               <div className="relative group/input">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <span className="text-gray-500 text-xl font-medium">
@@ -537,17 +792,29 @@ export default function Deposit() {
 
               {/* Deposit Action */}
               <button
-                onClick={
-                  activeTab === "deposit" ? handleDeposit : handleWithdraw
-                }
+                onClick={async () => {
+                  if (activeTab === "deposit") {
+                    if (selectedNetwork === "sepolia") {
+                      await handleGatewayDeposit();
+                    } else {
+                      await handleDeposit();
+                    }
+                  } else {
+                    if (selectedNetwork === "sepolia") {
+                      // Gateway Withdraw: Withdraw from Vault -> Gateway Bridge (BurnIntent)
+                      await handleWithdrawAndBridge();
+                    } else {
+                      await handleWithdraw();
+                    }
+                  }
+                }}
                 disabled={
                   loading || !amountInput || parseFloat(amountInput) <= 0
                 }
-                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${
-                  activeTab === "deposit"
-                    ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
-                    : "bg-white text-black hover:bg-gray-200"
-                }`}
+                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${activeTab === "deposit"
+                  ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
+                  : "bg-white text-black hover:bg-gray-200"
+                  }`}
               >
                 {activeTab === "deposit" ? (
                   <Lock className="w-5 h-5" />

@@ -1,6 +1,7 @@
 import { http, createConfig } from 'wagmi'
 import { defineChain } from 'viem'
 import { injected } from 'wagmi/connectors'
+import { sepolia } from 'viem/chains'
 
 // Arc Circle Testnet - USDC-native Layer 1 blockchain
 export const arcTestnet = defineChain({
@@ -29,11 +30,12 @@ export const arcTestnet = defineChain({
 })
 
 export const config = createConfig({
-  chains: [arcTestnet],
+  chains: [arcTestnet, sepolia],
   connectors: [
     injected(),
   ],
   transports: {
     [arcTestnet.id]: http('https://rpc.testnet.arc.network'),
+    [sepolia.id]: http(),
   },
 })
