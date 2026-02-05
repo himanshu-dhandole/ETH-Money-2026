@@ -10,41 +10,73 @@ import {
   HelpCircle,
   ArrowRight,
   Loader2,
+  Wallet,
+  Globe,
 } from "lucide-react";
 import {
   useAccount,
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
+  useEnsName,
 } from "wagmi";
 import RISK_ABI from "@/abi/RiskNFT.json";
 import { toast } from "sonner";
 import { RiskAssessmentModal } from "@/components/risk-assessment-modal";
+import { namehash } from "viem";
 
 const RISK_ADDRESS = import.meta.env.VITE_RISK_NFT_ADDRESS as `0x${string}`;
 
 export default function Profile() {
   const { address, isConnected } = useAccount();
+  const { data: ensName } = useEnsName({ address });
+  const [manualEnsName, setManualEnsName] = useState("");
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
-  // Contract Reads
-  const { data: riskProfileData, refetch: refetchProfile } = useReadContract({
+  // Contract Reads (Universal Discovery)
+  const { data: tokenIdByDiscovery, refetch: refetchDiscovery } = useReadContract({
     address: RISK_ADDRESS,
     abi: RISK_ABI,
-    functionName: "getRiskProfile",
+    functionName: "getPrimaryTokenId",
     args: [address],
     query: {
       enabled: !!address,
     },
   });
 
-  const { data: tokenId } = useReadContract({
+  const effectiveEnsName = ensName || (manualEnsName.includes(".") ? manualEnsName : undefined);
+
+  const { data: tokenIdByENS, refetch: refetchEnsToken } = useReadContract({
     address: RISK_ADDRESS,
     abi: RISK_ABI,
-    functionName: "getTokenId",
-    args: [address],
+    functionName: "getTokenIdByENS",
+    args: [effectiveEnsName ? namehash(effectiveEnsName) : undefined],
     query: {
-      enabled: !!address,
+      enabled: !!effectiveEnsName,
+    },
+  });
+
+  const tokenId = (tokenIdByDiscovery && tokenIdByDiscovery !== 0n)
+    ? tokenIdByDiscovery
+    : (tokenIdByENS && tokenIdByENS !== 0n ? tokenIdByENS : undefined);
+
+  const { data: riskProfileData, refetch: refetchProfile } = useReadContract({
+    address: RISK_ADDRESS,
+    abi: RISK_ABI,
+    functionName: "getRiskProfile",
+    args: [tokenId],
+    query: {
+      enabled: !!tokenId && tokenId !== 0n,
+    },
+  });
+
+  const { data: identityData } = useReadContract({
+    address: RISK_ADDRESS,
+    abi: RISK_ABI,
+    functionName: "getIdentity",
+    args: [tokenId],
+    query: {
+      enabled: !!tokenId && tokenId !== 0n,
     },
   });
 
@@ -65,6 +97,8 @@ export default function Profile() {
   const profile = riskProfileData as
     | { lowPct: number; medPct: number; highPct: number }
     | undefined;
+
+  const identity = identityData as any; // { kind: 0|1, addr: string, ensNode: string }
 
   const hasProfile = !!profile;
   const low = profile?.lowPct || 0;
@@ -94,9 +128,11 @@ export default function Profile() {
     if (isConfirmed) {
       toast.success("Profile updated successfully");
       setShowUpdateModal(false);
+      refetchDiscovery();
+      refetchEnsToken();
       refetchProfile();
     }
-  }, [isConfirmed, refetchProfile]);
+  }, [isConfirmed, refetchProfile, refetchDiscovery, refetchEnsToken]);
 
   useEffect(() => {
     if (writeError) {
@@ -168,6 +204,25 @@ export default function Profile() {
                     <p className="text-xs text-gray-500 uppercase tracking-widest mt-1">
                       Level {identityLevel} Identity
                     </p>
+                    <div className="mt-4 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
+                      {identity?.kind === 0 ? (
+                        <>
+                          <Wallet className="w-3.5 h-3.5 text-gray-400" />
+                          <div className="flex flex-col">
+                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider leading-none">Linked Identity</span>
+                            <span className="text-[11px] text-gray-300 font-medium mt-0.5">Wallet Address</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <Globe className="w-3.5 h-3.5 text-[#135bec]" />
+                          <div className="flex flex-col">
+                            <span className="text-[9px] text-[#135bec]/60 font-bold uppercase tracking-wider leading-none">Linked Identity</span>
+                            <span className="text-[11px] text-white font-medium mt-0.5 tracking-tight">{effectiveEnsName || "ENS Identity"}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   <div className="w-full z-10 bg-white/5 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
@@ -192,9 +247,23 @@ export default function Profile() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-[420px] w-72 bg-[#16181D] rounded-3xl border border-dashed border-white/10 mb-12">
+              <div className="flex flex-col items-center justify-center h-[420px] w-72 bg-[#16181D] rounded-3xl border border-dashed border-white/10 mb-12 p-6">
                 <ShieldCheck className="w-16 h-16 text-gray-700 mb-4" />
-                <p className="text-gray-500 text-sm">No Profile Found</p>
+                <p className="text-gray-500 text-sm mb-6 text-center">No Profile Linked to this Address</p>
+
+                <div className="w-full space-y-3">
+                  <div className="text-[10px] text-gray-600 font-bold uppercase tracking-widest text-center">Or Search by ENS</div>
+                  <input
+                    type="text"
+                    placeholder="name.eth"
+                    value={manualEnsName}
+                    onChange={(e) => setManualEnsName(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-center focus:outline-none focus:border-[#135bec]/50 transition-colors"
+                  />
+                  {manualEnsName && !manualEnsName.includes(".") && (
+                    <p className="text-[9px] text-gray-600 text-center italic">Include the domain (e.g. .eth)</p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -395,21 +464,31 @@ export default function Profile() {
         isOpen={showUpdateModal}
         onClose={() => setShowUpdateModal(false)}
         mode={hasProfile ? "update" : "mint"}
-        onSubmit={(allocation) => {
-          if (hasProfile) {
+        onSubmit={(allocation, identity) => {
+          if (hasProfile && tokenId) {
             updateProfile({
               address: RISK_ADDRESS,
               abi: RISK_ABI,
               functionName: "updateRiskProfile",
-              args: [allocation.low, allocation.mid, allocation.high],
+              args: [tokenId, allocation.low, allocation.mid, allocation.high],
             });
           } else {
-            updateProfile({
-              address: RISK_ADDRESS,
-              abi: RISK_ABI,
-              functionName: "mint",
-              args: [allocation.low, allocation.mid, allocation.high],
-            });
+            if (identity.type === "address") {
+              updateProfile({
+                address: RISK_ADDRESS,
+                abi: RISK_ABI,
+                functionName: "mintWithAddress",
+                args: [allocation.low, allocation.mid, allocation.high],
+              });
+            } else if (identity.type === "ens" && identity.ensName) {
+              const node = namehash(identity.ensName);
+              updateProfile({
+                address: RISK_ADDRESS,
+                abi: RISK_ABI,
+                functionName: "mintWithENS",
+                args: [node, allocation.low, allocation.mid, allocation.high],
+              });
+            }
           }
         }}
       />

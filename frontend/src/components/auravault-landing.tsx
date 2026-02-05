@@ -3,20 +3,31 @@ import { ArrowRight, TrendingUp, Diamond } from "lucide-react";
 import { RiskAssessmentModal } from "./risk-assessment-modal";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
-import { useAccount } from "wagmi";
+import { useAccount, useEnsName, useReadContract } from "wagmi";
 import { waitForTransactionReceipt, writeContract } from "@wagmi/core";
 import { config } from "@/config/wagmiConfig";
+import { namehash } from "viem";
 
 import RISK_NFT_ABI from "@/abi/RiskNFT.json";
 
 const AuraVaultLanding = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { address, isConnected } = useAccount();
-
   const VITE_RISK_NFT_ADDRESS = import.meta.env.VITE_RISK_NFT_ADDRESS;
+  const { address, isConnected } = useAccount();
+  const { data: ensName } = useEnsName({ address });
 
-  // TODO: Replace with actual NFT ownership check from smart contract
-  const hasRiskNFT = false; // Dummy data for now
+  // Universal Discovery
+  const { data: tokenId, refetch: refetchTokenId } = useReadContract({
+    address: VITE_RISK_NFT_ADDRESS as `0x${string}`,
+    abi: RISK_NFT_ABI,
+    functionName: "getPrimaryTokenId",
+    args: [address],
+    query: {
+      enabled: !!address,
+    },
+  });
+
+  const hasRiskNFT = !!tokenId;
 
   const handleMintClick = () => {
     if (!isConnected) {
@@ -39,42 +50,15 @@ const AuraVaultLanding = () => {
     setIsModalOpen(true);
   };
 
-  // const handleMintNFT = async () => {
-  //   if (!account) {
-  //     toast.error("Wallet not connected", {
-  //       description: "Please connect your wallet to mint a Risk NFT",
-  //     });
-  //     return;
-  //   }
 
-  //   try {
-  //     const txn = await writeContract(config, {
-  //       abi: RISK_NFT_ABI,
-  //       address: VITE_RISK_NFT_ADDRESS,
-  //       functionName: "mint",
-  //       args: [],
-  //     });
-  //     const recipt = await waitForTransactionReceipt(config, {
-  //       hash: txn,
-  //     });
-  //     if (recipt.status === "success") {
-  //       toast.success("Risk NFT minted successfully", {
-  //         description: "You can now use the Risk NFT in the vault",
-  //       });
-  //     }
-  //   } catch (error) {
-  //     toast.error("Error minting Risk NFT", {
-  //       description: "Please try again",
-  //     });
-  //     console.log("Error:", error);
-  //   }
-  // };
-
-  const handleModalSubmit = async (allocation: {
-    low: number;
-    mid: number;
-    high: number;
-  }) => {
+  const handleModalSubmit = async (
+    allocation: {
+      low: number;
+      mid: number;
+      high: number;
+    },
+    identity: { type: "address" | "ens"; ensName?: string },
+  ) => {
     if (!address) {
       toast.error("Wallet not connected", {
         description: "Please connect your wallet to mint a Risk NFT",
@@ -85,12 +69,31 @@ const AuraVaultLanding = () => {
     const { low, mid, high } = allocation;
 
     try {
-      const txn = await writeContract(config, {
-        abi: RISK_NFT_ABI,
-        address: VITE_RISK_NFT_ADDRESS,
-        functionName: "mint",
-        args: [low, mid, high],
-      });
+      let txn;
+      if (hasRiskNFT && tokenId) {
+        txn = await writeContract(config, {
+          abi: RISK_NFT_ABI,
+          address: VITE_RISK_NFT_ADDRESS as `0x${string}`,
+          functionName: "updateRiskProfile",
+          args: [tokenId, low, mid, high],
+        });
+      } else if (identity.type === "address") {
+        txn = await writeContract(config, {
+          abi: RISK_NFT_ABI,
+          address: VITE_RISK_NFT_ADDRESS as `0x${string}`,
+          functionName: "mintWithAddress",
+          args: [low, mid, high],
+        });
+      } else {
+        if (!identity.ensName) throw new Error("ENS name is required");
+        const node = namehash(identity.ensName);
+        txn = await writeContract(config, {
+          abi: RISK_NFT_ABI,
+          address: VITE_RISK_NFT_ADDRESS as `0x${string}`,
+          functionName: "mintWithENS",
+          args: [node, low, mid, high],
+        });
+      }
 
       const receipt = await waitForTransactionReceipt(config, {
         hash: txn,
@@ -100,11 +103,15 @@ const AuraVaultLanding = () => {
         toast.success("Risk NFT minted successfully", {
           description: "You can now use the Risk NFT in the vault",
         });
+        refetchTokenId();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Mint error:", error);
-      toast.error("Error minting Risk NFT", {
-        description: "Please try again",
+      const msg = error.shortMessage || error.message || "Please check your console";
+      toast.error("Transaction failed", {
+        description: msg.includes("ENS owner")
+          ? "ENS check failed. Try using 'Wallet Address' instead or ensure the contract is redeployed."
+          : msg,
       });
     }
   };
@@ -135,6 +142,15 @@ const AuraVaultLanding = () => {
                     Arc testnet Live
                   </span>
                 </div>
+
+                {ensName && (
+                  <div className="flex items-center gap-2 w-fit px-3 py-1 rounded-full border border-[#135bec]/20 bg-[#135bec]/5 backdrop-blur-sm animate-fadeIn">
+                    <span className="flex h-1.5 w-1.5 rounded-full bg-[#135bec] animate-pulse"></span>
+                    <span className="text-[10px] font-semibold tracking-wider text-[#135bec]">
+                      ENS detected: {ensName}
+                    </span>
+                  </div>
+                )}
 
                 {/* Headline */}
                 <h1 className="text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-[-0.03em] leading-[1.05] text-white text-glow">
@@ -239,6 +255,7 @@ const AuraVaultLanding = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleModalSubmit}
+        mode={hasRiskNFT ? "update" : "mint"}
       />
     </div>
   );
