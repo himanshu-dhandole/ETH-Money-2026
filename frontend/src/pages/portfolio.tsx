@@ -1,45 +1,51 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAccount } from "wagmi";
 import {
   TrendingUp,
   TrendingDown,
   Wallet,
-  ArrowUpRight,
   Shield,
   Zap,
   Flame,
-  PieChart,
-  Activity,
+  PieChart as PieChartIcon,
   DollarSign,
-  Calendar,
-  Target,
-  BarChart3,
+  Layers,
+  ArrowRight,
+  Info,
 } from "lucide-react";
 import DefaultLayout from "@/layouts/default";
 import { Link } from "react-router-dom";
 import { readContract } from "@wagmi/core";
 import { formatUnits } from "viem";
 import { config } from "@/config/wagmiConfig";
-import VAULT_ROUTER_ABI from "@/abi/Router.json";
+import VAULT_ROUTER_ABI from "@/abi/VaultRouter.json";
 import BASE_VAULT_ABI from "@/abi/BaseVault.json";
+import {
+  PieChart,
+  Pie as PieOriginal,
+  Cell,
+  Tooltip as RechartsTooltip,
+  Legend,
+  Sector,
+} from "recharts";
 
 const VAULT_ROUTER = import.meta.env.VITE_VAULT_ROUTER_ADDRESS as `0x${string}`;
 
 interface Position {
   vault: string;
   type: "low" | "medium" | "high";
-  deposited: string;
-  currentValue: string;
-  shares: string;
-  apy: string;
-  profit: string;
+  deposited: number;
+  currentValue: number;
+  shares: bigint;
+  apy: number;
+  profit: number;
   profitPercent: number;
   depositDate: string;
   icon: any;
   color: string;
-  bgColor: string;
-  borderColor: string;
-  totalHarvested: string;
+  gradientFrom: string;
+  gradientTo: string;
+  description: string;
   strategies: number;
 }
 
@@ -51,21 +57,133 @@ interface VaultDetails {
   strategyCount: number;
 }
 
+// --- Components ---
+
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="glass-panel px-4 py-3 rounded-xl border border-white/10 !bg-[#0f111a]/95 backdrop-blur-xl shadow-2xl min-w-[180px]">
+        <div className="flex items-center gap-2 mb-2">
+          <div
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: data.color }}
+          />
+          <p className="text-white font-medium text-sm">{data.name}</p>
+        </div>
+        <div className="space-y-1">
+          <div className="flex justify-between items-center gap-4">
+            <span className="text-xs text-gray-400">Value</span>
+            <span className="text-sm font-mono font-bold text-white">
+              {new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: "USD",
+                minimumFractionDigits: 2,
+              }).format(data.value)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center gap-4">
+            <span className="text-xs text-gray-400">Allocation</span>
+            <span className="text-xs font-mono text-gray-300">
+              {(data.percent * 100).toFixed(1)}%
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+// Active Shape for Pie Chart interaction
+const renderActiveShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } =
+    props;
+
+  return (
+    <g>
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 6}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+      />
+      <Sector
+        cx={cx}
+        cy={cy}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        innerRadius={outerRadius + 10}
+        outerRadius={outerRadius + 12}
+        fill={fill}
+        fillOpacity={0.3}
+      />
+    </g>
+  );
+};
+
+// Fix for Recharts TS error
+const Pie = PieOriginal as any;
+
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
-  const [timeframe, setTimeframe] = useState<"24h" | "7d" | "30d" | "all">(
-    "30d",
-  );
+  const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
+  const [activeIndex, setActiveIndex] = useState(0);
+  const isFirstFetch = useRef(true);
 
-  const [portfolioData, setPortfolioData] = useState({
-    totalValue: "0",
-    totalDeposited: "0",
-    profitLoss: "0",
-    profitLossPercent: 0,
-    positions: [] as Position[],
-    weightedAPY: "0",
-    totalHarvested: "0",
+  // Base data fetched from contract
+  const [baseData, setBaseData] = useState<{
+    low: {
+      value: number;
+      deposited: number;
+      shares: bigint;
+      apy: number;
+      strategies: number;
+    };
+    med: {
+      value: number;
+      deposited: number;
+      shares: bigint;
+      apy: number;
+      strategies: number;
+    };
+    high: {
+      value: number;
+      deposited: number;
+      shares: bigint;
+      apy: number;
+      strategies: number;
+    };
+    totalHarvested: number;
+    depositTimestamp: number;
+    profitLoss: number;
+  }>({
+    low: { value: 0, deposited: 0, shares: 0n, apy: 0, strategies: 0 },
+    med: { value: 0, deposited: 0, shares: 0n, apy: 0, strategies: 0 },
+    high: { value: 0, deposited: 0, shares: 0n, apy: 0, strategies: 0 },
+    totalHarvested: 0,
     depositTimestamp: 0,
+    profitLoss: 0,
+  });
+
+  const [displayData, setDisplayData] = useState<{
+    totalValue: number;
+    totalDeposited: number;
+    totalProfit: number;
+    totalProfitPercent: number;
+    weightedAPY: number;
+    positions: Position[];
+  }>({
+    totalValue: 0,
+    totalDeposited: 0,
+    totalProfit: 0,
+    totalProfitPercent: 0,
+    weightedAPY: 0,
+    positions: [],
   });
 
   const [_vaultDetails, setVaultDetails] = useState<{
@@ -78,12 +196,14 @@ export default function PortfolioPage() {
     high: null,
   });
 
-  const [protocolStats, setProtocolStats] = useState({
+  const [_protocolStats, setProtocolStats] = useState({
     totalValueLocked: "0",
     lowVaultTVL: "0",
     medVaultTVL: "0",
     highVaultTVL: "0",
   });
+
+  // --- Data Fetching Logic ---
 
   const fetchVaultDetails = useCallback(async (vaultAddress: string) => {
     try {
@@ -113,13 +233,14 @@ export default function PortfolioPage() {
 
       return {
         address: vaultAddress,
-        totalAssets: formatUnits(totalAssets, 18),
-        totalHarvested: formatUnits(totalHarvested, 18),
+        totalAssets: formatUnits(totalAssets, 6), // 6 decimals for USDC
+        totalHarvested: formatUnits(totalHarvested, 6), // 6 decimals
         lastHarvestTime: Number(lastHarvestTime),
-        strategyCount: strategies.filter((s: any) => s.active).length,
+        strategyCount: strategies.filter((s: any) => s.allocationBps > 0)
+          .length, // Filter active using allocation
       };
     } catch (err) {
-      console.error("Error fetching vault details:", err);
+      console.error("Error fetching vault details for", vaultAddress, err);
       return null;
     }
   }, []);
@@ -127,8 +248,13 @@ export default function PortfolioPage() {
   const fetchPortfolioData = useCallback(async () => {
     if (!address) return;
 
+    // Show loading on first fetch
+    if (isFirstFetch.current) {
+      setLoading(true);
+    }
+
     try {
-      // Fetch user position
+      // 1. Fetch User Position (9 items in VaultRouter.json)
       const position = (await readContract(config, {
         address: VAULT_ROUTER,
         abi: VAULT_ROUTER_ABI,
@@ -150,15 +276,15 @@ export default function PortfolioPage() {
         lowShares,
         medShares,
         highShares,
-        lowValue,
-        medValue,
-        highValue,
-        totalValue,
-        totalDeposited,
-        profitLoss,
+        lowValueVal,
+        medValueVal,
+        highValueVal,
+        totalValueVal,
+        totalDepositedVal,
+        profitLossVal,
       ] = position;
 
-      // Fetch user position details for timestamp
+      // 2. Fetch User Timestamp Details
       const userPosDetails = (await readContract(config, {
         address: VAULT_ROUTER,
         abi: VAULT_ROUTER_ABI,
@@ -166,26 +292,20 @@ export default function PortfolioPage() {
         args: [address],
       })) as [bigint, bigint, bigint, bigint, bigint];
 
-      const [, , , , depositTimestamp] = userPosDetails;
+      const depositTimestamp = Number(userPosDetails[4]);
 
-      // Fetch APYs
+      // 3. Fetch APYs
       const apys = (await readContract(config, {
         address: VAULT_ROUTER,
         abi: VAULT_ROUTER_ABI,
         functionName: "getVaultAPYs",
       })) as [bigint, bigint, bigint];
 
-      const [lowAPY, medAPY, highAPY] = apys;
+      const lowAPY = Number(apys[0]) / 100;
+      const medAPY = Number(apys[1]) / 100;
+      const highAPY = Number(apys[2]) / 100;
 
-      // Fetch weighted APY for user
-      const weightedAPY = (await readContract(config, {
-        address: VAULT_ROUTER,
-        abi: VAULT_ROUTER_ABI,
-        functionName: "getUserEstimatedAPY",
-        args: [address],
-      })) as bigint;
-
-      // Fetch vault addresses
+      // 4. Fetch Vault Addresses & Details
       const vaults = (await readContract(config, {
         address: VAULT_ROUTER,
         abi: VAULT_ROUTER_ABI,
@@ -193,561 +313,589 @@ export default function PortfolioPage() {
       })) as [string, string, string];
 
       const [lowVaultAddr, medVaultAddr, highVaultAddr] = vaults;
-
-      // Fetch vault details
       const [lowDetails, medDetails, highDetails] = await Promise.all([
         fetchVaultDetails(lowVaultAddr),
         fetchVaultDetails(medVaultAddr),
         fetchVaultDetails(highVaultAddr),
       ]);
 
-      setVaultDetails({
-        low: lowDetails,
-        med: medDetails,
-        high: highDetails,
+      setVaultDetails({ low: lowDetails, med: medDetails, high: highDetails });
+
+      // 5. Parse Values (using 6 decimals for USDC)
+      const totalValNum = parseFloat(formatUnits(totalValueVal, 6));
+      const totalDepNum = parseFloat(formatUnits(totalDepositedVal, 6));
+      const profitLossNum = parseFloat(formatUnits(profitLossVal, 6));
+
+      const lowValNum = parseFloat(formatUnits(lowValueVal, 6));
+      const medValNum = parseFloat(formatUnits(medValueVal, 6));
+      const highValNum = parseFloat(formatUnits(highValueVal, 6));
+
+      // Estimate deposited amount per vault based on current value proportion (simplified)
+      const safeTotalVal = totalValNum > 0 ? totalValNum : 1;
+      const lowDepNum = totalDepNum * (lowValNum / safeTotalVal);
+      const medDepNum = totalDepNum * (medValNum / safeTotalVal);
+      const highDepNum = totalDepNum * (highValNum / safeTotalVal);
+
+      setBaseData({
+        low: {
+          value: lowValNum,
+          deposited: lowDepNum,
+          shares: lowShares,
+          apy: lowAPY,
+          strategies: lowDetails?.strategyCount || 0,
+        },
+        med: {
+          value: medValNum,
+          deposited: medDepNum,
+          shares: medShares,
+          apy: medAPY,
+          strategies: medDetails?.strategyCount || 0,
+        },
+        high: {
+          value: highValNum,
+          deposited: highDepNum,
+          shares: highShares,
+          apy: highAPY,
+          strategies: highDetails?.strategyCount || 0,
+        },
+        totalHarvested:
+          parseFloat(lowDetails?.totalHarvested || "0") +
+          parseFloat(medDetails?.totalHarvested || "0") +
+          parseFloat(highDetails?.totalHarvested || "0"),
+        depositTimestamp: depositTimestamp,
+        profitLoss: profitLossNum,
       });
 
-      // Fetch protocol stats
+      // 6. Protocol Stats
       const stats = (await readContract(config, {
         address: VAULT_ROUTER,
         abi: VAULT_ROUTER_ABI,
         functionName: "getProtocolStats",
       })) as [bigint, bigint, bigint, bigint];
 
-      const [totalValueLocked, lowVaultTVL, medVaultTVL, highVaultTVL] = stats;
-
       setProtocolStats({
-        totalValueLocked: formatUnits(totalValueLocked, 18),
-        lowVaultTVL: formatUnits(lowVaultTVL, 18),
-        medVaultTVL: formatUnits(medVaultTVL, 18),
-        highVaultTVL: formatUnits(highVaultTVL, 18),
+        totalValueLocked: formatUnits(stats[0], 6), // 6 decimals
+        lowVaultTVL: formatUnits(stats[1], 6),
+        medVaultTVL: formatUnits(stats[2], 6),
+        highVaultTVL: formatUnits(stats[3], 6),
       });
 
-      const positions: Position[] = [];
-      const depositDate = new Date(Number(depositTimestamp) * 1000)
-        .toISOString()
-        .split("T")[0];
-
-      // Calculate individual vault profits
-      const lowDeposited =
-        Number(formatUnits(totalDeposited, 18)) *
-        (lowShares > 0n
-          ? Number(formatUnits(lowValue, 18)) /
-            Number(formatUnits(totalValue, 18))
-          : 0);
-      const medDeposited =
-        Number(formatUnits(totalDeposited, 18)) *
-        (medShares > 0n
-          ? Number(formatUnits(medValue, 18)) /
-            Number(formatUnits(totalValue, 18))
-          : 0);
-      const highDeposited =
-        Number(formatUnits(totalDeposited, 18)) *
-        (highShares > 0n
-          ? Number(formatUnits(highValue, 18)) /
-            Number(formatUnits(totalValue, 18))
-          : 0);
-
-      if (lowShares > 0n) {
-        const currentVal = Number(formatUnits(lowValue, 18));
-        const profit = currentVal - lowDeposited;
-        const profitPercent =
-          lowDeposited > 0 ? (profit / lowDeposited) * 100 : 0;
-
-        positions.push({
-          vault: "Conservative Vault",
-          type: "low",
-          deposited: lowDeposited.toFixed(2),
-          currentValue: formatUnits(lowValue, 18),
-          shares: formatUnits(lowShares, 18),
-          apy: (Number(lowAPY) / 100).toFixed(1),
-          profit: profit.toFixed(2),
-          profitPercent,
-          depositDate,
-          icon: Shield,
-          color: "text-green-400",
-          bgColor: "bg-green-500/10",
-          borderColor: "border-green-500/20",
-          totalHarvested: lowDetails?.totalHarvested || "0",
-          strategies: lowDetails?.strategyCount || 0,
-        });
-      }
-
-      if (medShares > 0n) {
-        const currentVal = Number(formatUnits(medValue, 18));
-        const profit = currentVal - medDeposited;
-        const profitPercent =
-          medDeposited > 0 ? (profit / medDeposited) * 100 : 0;
-
-        positions.push({
-          vault: "Balanced Vault",
-          type: "medium",
-          deposited: medDeposited.toFixed(2),
-          currentValue: formatUnits(medValue, 18),
-          shares: formatUnits(medShares, 18),
-          apy: (Number(medAPY) / 100).toFixed(1),
-          profit: profit.toFixed(2),
-          profitPercent,
-          depositDate,
-          icon: Zap,
-          color: "text-yellow-400",
-          bgColor: "bg-yellow-500/10",
-          borderColor: "border-yellow-500/20",
-          totalHarvested: medDetails?.totalHarvested || "0",
-          strategies: medDetails?.strategyCount || 0,
-        });
-      }
-
-      if (highShares > 0n) {
-        const currentVal = Number(formatUnits(highValue, 18));
-        const profit = currentVal - highDeposited;
-        const profitPercent =
-          highDeposited > 0 ? (profit / highDeposited) * 100 : 0;
-
-        positions.push({
-          vault: "Aggressive Vault",
-          type: "high",
-          deposited: highDeposited.toFixed(2),
-          currentValue: formatUnits(highValue, 18),
-          shares: formatUnits(highShares, 18),
-          apy: (Number(highAPY) / 100).toFixed(1),
-          profit: profit.toFixed(2),
-          profitPercent,
-          depositDate,
-          icon: Flame,
-          color: "text-red-400",
-          bgColor: "bg-red-500/10",
-          borderColor: "border-red-500/20",
-          totalHarvested: highDetails?.totalHarvested || "0",
-          strategies: highDetails?.strategyCount || 0,
-        });
-      }
-
-      const totalValNum = Number(formatUnits(totalValue, 18));
-      const totalDepNum = Number(formatUnits(totalDeposited, 18));
-      const plPercent =
-        totalDepNum > 0 ? ((totalValNum - totalDepNum) / totalDepNum) * 100 : 0;
-
-      // Calculate total harvested across all vaults
-      const totalHarvested = (
-        parseFloat(lowDetails?.totalHarvested || "0") +
-        parseFloat(medDetails?.totalHarvested || "0") +
-        parseFloat(highDetails?.totalHarvested || "0")
-      ).toFixed(2);
-
-      setPortfolioData({
-        totalValue: formatUnits(totalValue, 18),
-        totalDeposited: formatUnits(totalDeposited, 18),
-        profitLoss: formatUnits(profitLoss, 18),
-        profitLossPercent: plPercent,
-        positions,
-        weightedAPY: (Number(weightedAPY) / 100).toFixed(2),
-        totalHarvested,
-        depositTimestamp: Number(depositTimestamp),
-      });
+      setLastUpdate(Date.now());
+      setLoading(false);
+      isFirstFetch.current = false;
     } catch (err) {
       console.error("Error fetching portfolio data:", err);
+      setLoading(false);
     }
   }, [address, fetchVaultDetails]);
 
+  // Initial Fetch & Polling
   useEffect(() => {
     if (isConnected) {
       fetchPortfolioData();
       const interval = setInterval(fetchPortfolioData, 30000);
       return () => clearInterval(interval);
+    } else {
+      setLoading(false);
     }
   }, [isConnected, fetchPortfolioData]);
 
-  const formatCurrency = (value: number | string) => {
-    const num = typeof value === "string" ? parseFloat(value) : value;
+  // Real-time Simulation Update
+  useEffect(() => {
+    // Return early if no active positions
+    if (
+      baseData.totalHarvested === 0 &&
+      baseData.low.shares === 0n &&
+      baseData.med.shares === 0n &&
+      baseData.high.shares === 0n
+    ) {
+      // If loaded but no positions, ensure displayData is zeroed/consistent
+      if (!loading) {
+        setDisplayData((prev) => ({
+          ...prev,
+          positions: [],
+          totalValue: 0,
+          totalDeposited: 0,
+          totalProfit: 0,
+        }));
+      }
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const timeDiffMs = now - lastUpdate;
+      const secondsElapsed = timeDiffMs / 1000;
+
+      // Simple continuous compound simulation between chain fetches
+      const calculateCurrentValue = (baseVal: number, apy: number) => {
+        if (baseVal === 0) return 0;
+        const r = apy / 100;
+        const growth = baseVal * r * (secondsElapsed / (365 * 24 * 60 * 60));
+        return baseVal + growth;
+      };
+
+      const curLowVal = calculateCurrentValue(
+        baseData.low.value,
+        baseData.low.apy,
+      );
+      const curMedVal = calculateCurrentValue(
+        baseData.med.value,
+        baseData.med.apy,
+      );
+      const curHighVal = calculateCurrentValue(
+        baseData.high.value,
+        baseData.high.apy,
+      );
+
+      const totalVal = curLowVal + curMedVal + curHighVal;
+      const totalDep =
+        baseData.low.deposited +
+        baseData.med.deposited +
+        baseData.high.deposited;
+
+      // Use the contract's profitLoss as base, add simulated growth
+      // Contract Profit = Value - Deposited.
+      // Simulated new Value - Deposited = new Profit.
+      const totalProf = totalVal - totalDep;
+      const totalProfPerc = totalDep > 0 ? (totalProf / totalDep) * 100 : 0;
+
+      let newWeightedAPY = 0;
+      if (totalVal > 0) {
+        newWeightedAPY =
+          baseData.low.apy * (curLowVal / totalVal) +
+          baseData.med.apy * (curMedVal / totalVal) +
+          baseData.high.apy * (curHighVal / totalVal);
+      }
+
+      const depositDate =
+        baseData.depositTimestamp > 0
+          ? new Date(baseData.depositTimestamp * 1000).toLocaleDateString()
+          : "N/A";
+
+      const newPositions: Position[] = [];
+
+      if (baseData.low.shares > 0n) {
+        newPositions.push({
+          vault: "Conservative Vault",
+          type: "low",
+          deposited: baseData.low.deposited,
+          currentValue: curLowVal,
+          shares: baseData.low.shares,
+          apy: baseData.low.apy,
+          profit: curLowVal - baseData.low.deposited,
+          profitPercent:
+            baseData.low.deposited > 0
+              ? ((curLowVal - baseData.low.deposited) /
+                  baseData.low.deposited) *
+                100
+              : 0,
+          depositDate,
+          icon: Shield,
+          color: "#4ade80",
+          gradientFrom: "from-green-500/20",
+          gradientTo: "to-green-500/5",
+          description: "Stablecoin & Blue-chip yield farming",
+          strategies: baseData.low.strategies,
+        });
+      }
+      if (baseData.med.shares > 0n) {
+        newPositions.push({
+          vault: "Balanced Vault",
+          type: "medium",
+          deposited: baseData.med.deposited,
+          currentValue: curMedVal,
+          shares: baseData.med.shares,
+          apy: baseData.med.apy,
+          profit: curMedVal - baseData.med.deposited,
+          profitPercent:
+            baseData.med.deposited > 0
+              ? ((curMedVal - baseData.med.deposited) /
+                  baseData.med.deposited) *
+                100
+              : 0,
+          depositDate,
+          icon: Zap,
+          color: "#facc15",
+          gradientFrom: "from-yellow-500/20",
+          gradientTo: "to-yellow-500/5",
+          description: "LSDs & Curve Pools",
+          strategies: baseData.med.strategies,
+        });
+      }
+      if (baseData.high.shares > 0n) {
+        newPositions.push({
+          vault: "Aggressive Vault",
+          type: "high",
+          deposited: baseData.high.deposited,
+          currentValue: curHighVal,
+          shares: baseData.high.shares,
+          apy: baseData.high.apy,
+          profit: curHighVal - baseData.high.deposited,
+          profitPercent:
+            baseData.high.deposited > 0
+              ? ((curHighVal - baseData.high.deposited) /
+                  baseData.high.deposited) *
+                100
+              : 0,
+          depositDate,
+          icon: Flame,
+          color: "#f87171",
+          gradientFrom: "from-red-500/20",
+          gradientTo: "to-red-500/5",
+          description: "High yield pools & leveraged strategies",
+          strategies: baseData.high.strategies,
+        });
+      }
+
+      setDisplayData({
+        totalValue: totalVal,
+        totalDeposited: totalDep,
+        totalProfit: totalProf,
+        totalProfitPercent: totalProfPerc,
+        weightedAPY: newWeightedAPY,
+        positions: newPositions,
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [baseData, lastUpdate, loading]); // Added loading to deps
+
+  const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
       minimumFractionDigits: 2,
-    }).format(num);
+      maximumFractionDigits: 2,
+    }).format(value);
   };
 
-  const getDaysHeld = (depositDate: string) => {
-    const now = new Date();
-    const deposit = new Date(depositDate);
-    const diff = Math.floor(
-      (now.getTime() - deposit.getTime()) / (1000 * 60 * 60 * 24),
-    );
-    return diff;
+  const pieData = useMemo(() => {
+    return displayData.positions
+      .map((p) => ({
+        name: p.vault,
+        value: p.currentValue,
+        color: p.color,
+        percent:
+          displayData.totalValue > 0
+            ? p.currentValue / displayData.totalValue
+            : 0,
+      }))
+      .filter((d) => d.value > 0);
+  }, [displayData]);
+
+  const onPieEnter = (_: any, index: number) => {
+    setActiveIndex(index);
   };
 
   if (!isConnected) {
     return (
       <DefaultLayout>
-        <div className="relative min-h-screen w-full bg-[#0B0C10] text-white flex items-center justify-center">
-          <div className="glass-panel p-12 rounded-3xl text-center max-w-md">
-            <Wallet className="w-16 h-16 text-[#135bec] mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-3">Connect Your Wallet</h2>
-            <p className="text-gray-400 mb-6">
-              Please connect your wallet to view your portfolio
+        <div className="relative min-h-screen w-full bg-[#0B0C10] text-white flex items-center justify-center overflow-hidden">
+          <div className="absolute inset-0 z-0 bg-[#0B0C10]">
+            <div className="absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full bg-[#135bec]/10 blur-[120px]" />
+            <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] rounded-full bg-indigo-900/10 blur-[120px]" />
+            <div className="bg-noise absolute inset-0 opacity-20" />
+          </div>
+          <div className="glass-panel p-10 rounded-2xl flex flex-col items-center max-w-md w-full relative z-10 mx-4 border border-white/5">
+            <div className="w-16 h-16 rounded-full bg-[#135bec]/20 flex items-center justify-center mb-6 text-[#135bec] animate-pulse">
+              <Wallet size={32} />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Connect Wallet</h2>
+            <p className="text-gray-400 text-center mb-6 leading-relaxed text-sm">
+              Connect your wallet to view your portfolio analytics, track
+              performance, and manage your vault positions.
             </p>
+            <div className="flex items-center gap-2 text-xs text-gray-500 uppercase tracking-widest font-semibold">
+              <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+              Disconnected
+            </div>
           </div>
         </div>
       </DefaultLayout>
     );
   }
 
-  const isProfit = Number(portfolioData.profitLoss) >= 0;
+  const isProfit = displayData.totalProfit >= 0;
 
   return (
     <DefaultLayout>
-      <div className="relative min-h-screen w-full bg-[#0B0C10] text-white overflow-x-hidden">
-        {/* Ambient Background Effects */}
-        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-0 right-1/4 w-[600px] h-[600px] rounded-full bg-[#135bec]/5 blur-[120px]" />
-          <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] rounded-full bg-purple-900/10 blur-[100px]" />
-          <div className="bg-noise" />
+      <div className="relative min-h-screen w-full bg-[#0B0C10] text-white font-sans overflow-x-hidden selection:bg-[#135bec]/30">
+        {/* Background Effects */}
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          <div className="absolute -top-[10%] right-[10%] w-[600px] h-[600px] rounded-full bg-[#135bec]/5 blur-[100px]" />
+          <div className="absolute top-[40%] -left-[10%] w-[500px] h-[500px] rounded-full bg-purple-900/5 blur-[100px]" />
+          <div className="bg-noise absolute inset-0 opacity-30" />
         </div>
 
-        {/* Main Content */}
-        <main className="relative z-10 px-6 pt-32 pb-20">
-          <div className="mx-auto w-full max-w-7xl">
-            {/* Header */}
-            <div className="mb-12">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="h-1 w-12 bg-gradient-to-r from-[#135bec] to-transparent rounded-full" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#135bec]">
-                  Your Portfolio
-                </span>
-              </div>
-              <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-                <div>
-                  <h1 className="text-5xl sm:text-6xl font-semibold tracking-[-0.03em] leading-[1.05] text-white mb-2">
-                    {formatCurrency(portfolioData.totalValue)}
-                  </h1>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex items-center gap-1 px-3 py-1 rounded-full ${
-                        isProfit
-                          ? "bg-green-500/10 text-green-400"
-                          : "bg-red-500/10 text-red-400"
-                      }`}
-                    >
-                      {isProfit ? (
-                        <TrendingUp className="w-4 h-4" />
-                      ) : (
-                        <TrendingDown className="w-4 h-4" />
-                      )}
-                      <span className="text-sm font-semibold">
-                        {isProfit ? "+" : ""}
-                        {formatCurrency(portfolioData.profitLoss)} (
-                        {portfolioData.profitLossPercent.toFixed(2)}%)
-                      </span>
+        <main className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-24 max-w-7xl">
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white/90">
+                Portfolio
+              </h1>
+            </div>
+          </div>
+
+          {/* Main Dashboard Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Left Column: Stats & Total */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Total Balance Card */}
+              <div className="glass-panel p-8 rounded-3xl border border-white/5 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#135bec]/10 via-transparent to-transparent opacity-50 group-hover:opacity-70 transition-opacity" />
+
+                <div className="relative z-10">
+                  <p className="text-sm font-medium text-gray-400 mb-1 flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-[#135bec]" />
+                    Total Balance
+                  </p>
+                  {loading ? (
+                    <div className="h-20 w-3/4 bg-white/5 animate-pulse rounded-2xl my-2" />
+                  ) : (
+                    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 mb-6">
+                      <h2 className="text-5xl sm:text-6xl font-bold font-mono tracking-tighter text-white">
+                        {formatCurrency(displayData.totalValue)}
+                      </h2>
+                      <div
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-mono font-medium border ${
+                          isProfit
+                            ? "bg-green-500/10 border-green-500/20 text-green-400"
+                            : "bg-red-500/10 border-red-500/20 text-red-400"
+                        }`}
+                      >
+                        {isProfit ? (
+                          <TrendingUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <TrendingDown className="w-3.5 h-3.5" />
+                        )}
+                        <span>
+                          {isProfit ? "+" : ""}
+                          {formatCurrency(displayData.totalProfit)}
+                        </span>
+                        <span className="opacity-70">
+                          ({displayData.totalProfitPercent.toFixed(2)}%)
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-sm text-gray-500">All time</span>
+                  )}
+
+                  {/* Secondary Stats Row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-6 border-t border-white/5">
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">
+                        In Vault
+                      </p>
+                      <p className="text-lg font-mono font-semibold text-gray-200">
+                        {formatCurrency(displayData.totalDeposited)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">
+                        Projected APY
+                      </p>
+                      <p className="text-lg font-mono font-semibold text-green-400">
+                        {displayData.weightedAPY.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">
+                        Total Profit Harvested
+                      </p>
+                      <p className="text-lg font-mono font-semibold text-yellow-400">
+                        {formatCurrency(baseData.totalHarvested)}
+                      </p>
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Timeframe Selector */}
-                <div className="flex items-center gap-2 glass-panel p-1 rounded-xl">
-                  {(["24h", "7d", "30d", "all"] as const).map((tf) => (
-                    <button
-                      key={tf}
-                      onClick={() => setTimeframe(tf)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        timeframe === tf
-                          ? "bg-[#135bec] text-white"
-                          : "text-gray-400 hover:text-white"
-                      }`}
+              {/* Positions List */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-white/80 uppercase tracking-widest flex items-center gap-2 pl-1">
+                  <Layers className="w-4 h-4" /> Your Positions
+                </h3>
+
+                {loading ? (
+                  [1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="glass-panel h-24 w-full animate-pulse rounded-2xl"
+                    />
+                  ))
+                ) : displayData.positions.length > 0 ? (
+                  displayData.positions.map((pos, idx) => (
+                    <div
+                      key={idx}
+                      className="glass-panel p-5 rounded-2xl border border-white/5 hover:border-white/15 transition-all duration-300 group"
                     >
-                      {tf.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-              <div className="glass-panel p-6 rounded-2xl">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-[#135bec]/10">
-                    <DollarSign className="w-5 h-5 text-[#135bec]" />
-                  </div>
-                  <span className="text-sm text-gray-400 uppercase tracking-wider">
-                    Total Deposited
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-white">
-                  {formatCurrency(portfolioData.totalDeposited)}
-                </p>
-              </div>
-
-              <div className="glass-panel p-6 rounded-2xl">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-purple-500/10">
-                    <PieChart className="w-5 h-5 text-purple-400" />
-                  </div>
-                  <span className="text-sm text-gray-400 uppercase tracking-wider">
-                    Active Positions
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-white">
-                  {portfolioData.positions.length}
-                </p>
-              </div>
-
-              <div className="glass-panel p-6 rounded-2xl">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-green-500/10">
-                    <Target className="w-5 h-5 text-green-400" />
-                  </div>
-                  <span className="text-sm text-gray-400 uppercase tracking-wider">
-                    Weighted APY
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-white">
-                  {portfolioData.weightedAPY}%
-                </p>
-              </div>
-
-              <div className="glass-panel p-6 rounded-2xl">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-yellow-500/10">
-                    <Activity className="w-5 h-5 text-yellow-400" />
-                  </div>
-                  <span className="text-sm text-gray-400 uppercase tracking-wider">
-                    Total Harvested
-                  </span>
-                </div>
-                <p className={`text-2xl font-bold text-green-400`}>
-                  {formatCurrency(portfolioData.totalHarvested)}
-                </p>
-              </div>
-            </div>
-
-            {/* Protocol Stats */}
-            <div className="glass-panel p-6 rounded-2xl mb-12">
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-[#135bec]" />
-                Protocol Statistics
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                    Total Value Locked
-                  </p>
-                  <p className="text-xl font-bold text-white">
-                    {formatCurrency(protocolStats.totalValueLocked)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                    Low Risk TVL
-                  </p>
-                  <p className="text-xl font-bold text-green-400">
-                    {formatCurrency(protocolStats.lowVaultTVL)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                    Med Risk TVL
-                  </p>
-                  <p className="text-xl font-bold text-yellow-400">
-                    {formatCurrency(protocolStats.medVaultTVL)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                    High Risk TVL
-                  </p>
-                  <p className="text-xl font-bold text-red-400">
-                    {formatCurrency(protocolStats.highVaultTVL)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Positions */}
-            <div className="mb-12">
-              <h2 className="text-2xl font-bold text-white mb-6">
-                Your Positions
-              </h2>
-              <div className="grid grid-cols-1 gap-6">
-                {portfolioData.positions.length > 0 ? (
-                  portfolioData.positions.map(
-                    (position: Position, idx: number) => {
-                      const Icon = position.icon;
-                      const daysHeld = getDaysHeld(position.depositDate);
-                      const posProfit = parseFloat(position.profit);
-                      const isPosProfit = posProfit >= 0;
-
-                      return (
-                        <div
-                          key={idx}
-                          className={`glass-panel rounded-2xl p-6 border ${position.borderColor} hover:border-opacity-50 transition-all group cursor-pointer`}
-                        >
-                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                            {/* Left: Vault Info */}
-                            <div className="flex items-center gap-4">
-                              <div
-                                className={`p-3 rounded-xl ${position.bgColor}`}
-                              >
-                                <Icon className={`w-6 h-6 ${position.color}`} />
-                              </div>
-                              <div>
-                                <h3 className="text-xl font-bold text-white mb-1">
-                                  {position.vault}
-                                </h3>
-                                <div className="flex items-center gap-3 text-sm text-gray-400">
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    {daysHeld} days held
-                                  </span>
-                                  <span>•</span>
-                                  <span>{position.strategies} strategies</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Center: Values */}
-                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 flex-1">
-                              <div>
-                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                                  Current Value
-                                </p>
-                                <p className="text-lg font-bold text-white">
-                                  {formatCurrency(position.currentValue)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                                  Deposited
-                                </p>
-                                <p className="text-lg font-bold text-gray-300">
-                                  {formatCurrency(position.deposited)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                                  Profit/Loss
-                                </p>
-                                <p
-                                  className={`text-lg font-bold ${isPosProfit ? "text-green-400" : "text-red-400"}`}
-                                >
-                                  {isPosProfit ? "+" : ""}
-                                  {formatCurrency(position.profit)}
-                                </p>
-                                <p
-                                  className={`text-xs ${isPosProfit ? "text-green-400" : "text-red-400"}`}
-                                >
-                                  {position.profitPercent.toFixed(2)}%
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                                  APY
-                                </p>
-                                <p className="text-lg font-bold text-green-400">
-                                  {position.apy}%
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                                  Harvested
-                                </p>
-                                <p className="text-lg font-bold text-purple-400">
-                                  {formatCurrency(position.totalHarvested)}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Right: Action */}
-                            <Link
-                              to="/deposit"
-                              className="glass-button px-6 py-3 rounded-xl flex items-center gap-2 group-hover:shadow-[0_0_20px_rgba(19,91,236,0.2)] transition-all"
-                            >
-                              <span className="text-sm font-semibold text-white">
-                                Manage
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        {/* Vault Info */}
+                        <div className="flex items-start gap-4">
+                          <div
+                            className={`p-3 rounded-xl bg-gradient-to-br ${pos.gradientFrom} ${pos.gradientTo} border border-white/5 group-hover:scale-110 transition-transform`}
+                          >
+                            <pos.icon
+                              className={`w-6 h-6 ${pos.color.replace("#", "text-[") + "]"}`}
+                              style={{ color: pos.color }}
+                            />
+                          </div>
+                          <div>
+                            <h4 className="text-lg font-bold text-white">
+                              {pos.vault}
+                            </h4>
+                            <p className="text-xs text-gray-500 max-w-[200px] line-clamp-1">
+                              {pos.description}
+                            </p>
+                            <div className="flex items-center gap-2 mt-2">
+                              {/* <span className="text-xs font-mono px-2 py-0.5 rounded bg-white/5 text-gray-300 border border-white/5">
+                                {pos.strategies} Strategies
+                              </span> */}
+                              <span className="text-xs font-mono font-bold text-green-400">
+                                APY: {pos.apy.toFixed(2)}%
                               </span>
-                              <ArrowUpRight className="w-4 h-4 text-white/70" />
-                            </Link>
+                            </div>
                           </div>
                         </div>
-                      );
-                    },
-                  )
+
+                        {/* Value Info */}
+                        <div className="flex flex-col sm:items-end">
+                          <span className="text-2xl font-mono font-bold text-white tracking-tight">
+                            {formatCurrency(pos.currentValue)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 ) : (
-                  <div className="glass-panel p-12 rounded-2xl text-center">
-                    <PieChart className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                    <p className="text-gray-400">No active positions found.</p>
+                  <div className="glass-panel p-8 rounded-2xl border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-gray-800/50 flex items-center justify-center mb-3 text-gray-600">
+                      <DollarSign className="w-5 h-5" />
+                    </div>
+                    <p className="text-gray-400 font-medium mb-1">
+                      No Active Positions
+                    </p>
+                    <p className="text-gray-600 text-sm mb-4">
+                      Deposit funds into a vault to start earning yield.
+                    </p>
                     <Link
-                      to="/deposit"
-                      className="text-[#135bec] hover:underline mt-2 inline-block"
+                      to="/"
+                      className="text-xs font-bold text-[#135bec] hover:text-white transition-colors flex items-center gap-1 uppercase tracking-wider"
                     >
-                      Make Your First Deposit
+                      Explore Vaults <ArrowRight className="w-3 h-3" />
                     </Link>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Link
-                to="/deposit"
-                className="glass-panel p-6 rounded-2xl hover:border-[#135bec]/50 border border-transparent transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-[#135bec]/10">
-                    <DollarSign className="w-6 h-6 text-[#135bec]" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-1">
-                      Deposit More
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      Add funds to your vaults
-                    </p>
-                  </div>
-                  <ArrowUpRight className="w-5 h-5 text-gray-600 group-hover:text-[#135bec] ml-auto transition-colors" />
-                </div>
-              </Link>
+            {/* Right Column: Chart */}
+            <div className="lg:col-span-1">
+              <div className="glass-panel p-6 rounded-3xl border border-white/5 h-full min-h-[400px] flex flex-col relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-white/5 to-transparent rounded-bl-full pointer-events-none" />
 
-              <Link
-                to="/profile"
-                className="glass-panel p-6 rounded-2xl hover:border-purple-500/50 border border-transparent transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-purple-500/10">
-                    <Target className="w-6 h-6 text-purple-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-1">
-                      Update Profile
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      Adjust your risk tolerance
-                    </p>
-                  </div>
-                  <ArrowUpRight className="w-5 h-5 text-gray-600 group-hover:text-purple-400 ml-auto transition-colors" />
+                <div className="mb-6 relative z-10">
+                  <h3 className="text-sm font-bold text-white/80 uppercase tracking-widest flex items-center gap-2">
+                    <PieChartIcon className="w-4 h-4 text-[#135bec]" />{" "}
+                    Allocation
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Breakdown by vault risk category
+                  </p>
                 </div>
-              </Link>
 
-              <Link
-                to="/docs"
-                className="glass-panel p-6 rounded-2xl hover:border-green-500/50 border border-transparent transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-green-500/10">
-                    <Activity className="w-6 h-6 text-green-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-1">
-                      Learn More
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      Understand how it works
+                <div className="flex-1 min-h-[300px] relative">
+                  {loading ? (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full border-2 border-[#135bec] border-t-transparent animate-spin" />
+                    </div>
+                  ) : pieData.length > 0 ? (
+                    <div className="flex items-center justify-center">
+                      <PieChart width={300} height={300}>
+                        {/* @ts-ignore */}
+                        <Pie
+                          data={pieData}
+                          dataKey="value"
+                          cx={150}
+                          cy={150}
+                          innerRadius={70}
+                          outerRadius={90}
+                          paddingAngle={5}
+                          activeIndex={activeIndex}
+                          activeShape={renderActiveShape}
+                          onMouseEnter={onPieEnter}
+                        >
+                          {pieData.map((entry: any, index: number) => (
+                            <Cell key={index} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip content={<CustomTooltip />} />
+                        <Legend
+                          verticalAlign="bottom"
+                          height={36}
+                          content={(props) => {
+                            const { payload } = props;
+                            return (
+                              <div className="flex flex-wrap justify-center gap-3 mt-4">
+                                {payload?.map((entry: any, index: number) => (
+                                  <div
+                                    key={`item-${index}`}
+                                    className="flex items-center gap-1.5"
+                                  >
+                                    <div
+                                      className="w-2 h-2 rounded-full"
+                                      style={{ backgroundColor: entry.color }}
+                                    />
+                                    <span className="text-xs text-gray-400 font-medium">
+                                      {entry.payload?.value
+                                        ? formatCurrency(entry.payload.value)
+                                        : entry.value}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }}
+                        />
+                      </PieChart>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-700">
+                      <div className="w-24 h-24 rounded-full border-2 border-gray-800/50 flex items-center justify-center mb-4">
+                        <PieChartIcon className="w-8 h-8 opacity-20" />
+                      </div>
+                      <p className="text-sm font-medium">No Data Available</p>
+                    </div>
+                  )}
+
+                  {/* Center Text Overlay */}
+                  {pieData.length > 0 && !loading && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-12">
+                      <div className="text-center">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">
+                          Total
+                        </span>
+                        <span className="text-lg font-bold text-white font-mono block">
+                          {pieData.length} Vaults
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Info Box */}
+                <div className="mt-4 p-4 rounded-xl bg-white/5 border border-white/5">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-4 h-4 text-[#135bec] mt-0.5" />
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      Your portfolio allocation is updated efficiently based on
+                      the underlying strategy performance. Rebalance if
+                      necessary.
                     </p>
                   </div>
-                  <ArrowUpRight className="w-5 h-5 text-gray-600 group-hover:text-green-400 ml-auto transition-colors" />
                 </div>
-              </Link>
+              </div>
             </div>
           </div>
         </main>

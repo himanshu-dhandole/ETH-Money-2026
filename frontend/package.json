@@ -41,6 +41,7 @@
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^6.30.3",
     "react-toastify": "^11.0.5",
+    "recharts": "^3.7.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "tailwind-variants": "3.2.2",
