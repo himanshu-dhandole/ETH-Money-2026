@@ -23,6 +23,15 @@ import { formatUnits } from "viem";
 import { config } from "@/config/wagmiConfig";
 import VAULT_ROUTER_ABI from "@/abi/VaultRouter.json";
 import strategyPerformance from "@/lib/aura-farmer.strategy_performance.json";
+import BASE_VAULT_ABI from "@/abi/BaseVault.json";
+import STRATEGY_ABI from "@/abi/Strategy.json";
+import {
+  Info,
+  X,
+  ExternalLink,
+  CheckCircle,
+  AlertTriangle,
+} from "lucide-react";
 
 const VAULT_ROUTER = import.meta.env.VITE_VAULT_ROUTER_ADDRESS as `0x${string}`;
 
@@ -63,8 +72,8 @@ const VAULTS: VaultDefinition[] = [
     color: "text-emerald-400",
     hex: "#34d399",
     bgGradient: "from-emerald-500/10 to-transparent",
-    strategies: ["Stablecoin Yield", "Aave Bluechip", "Treasury Bonds"],
-    minDeposit: "100 USDC",
+    strategies: [], // Fetched dynamically
+    minDeposit: "No minimum",
     lockPeriod: "No lock",
   },
   {
@@ -77,9 +86,9 @@ const VAULTS: VaultDefinition[] = [
     color: "text-amber-400",
     hex: "#fbbf24",
     bgGradient: "from-amber-500/10 to-transparent",
-    strategies: ["Lido Staking", "Curve Pools", "Lending Protocols"],
-    minDeposit: "100 USDC",
-    lockPeriod: "7 days",
+    strategies: [],
+    minDeposit: "No minimum",
+    lockPeriod: "No lock",
   },
   {
     id: "high-risk",
@@ -91,14 +100,24 @@ const VAULTS: VaultDefinition[] = [
     color: "text-rose-500",
     hex: "#f43f5e",
     bgGradient: "from-rose-500/10 to-transparent",
-    strategies: ["Meme Pools", "Leveraged Yield", "Emerging Opportunities"],
-    minDeposit: "100 USDC",
-    lockPeriod: "14 days",
+    strategies: [],
+    minDeposit: "No minimum",
+    lockPeriod: "No lock",
   },
 ];
 
 export default function VaultPage() {
   const [selectedVault, setSelectedVault] = useState<string | null>(null);
+  const [modalVault, setModalVault] = useState<{
+    address: string;
+    name: string;
+    color: string;
+  } | null>(null);
+
+  const [vaultStrategies, setVaultStrategies] = useState<
+    Record<string, string[]>
+  >({});
+
   const [vaultStats, setVaultStats] = useState({
     totalTVL: "0.00",
     avgAPY: "0.0",
@@ -142,6 +161,50 @@ export default function VaultPage() {
         highAPY: (Number(highAPY) / 100).toFixed(1),
         avgAPY: avg.toFixed(1),
       });
+
+      // Update strategies for each vault
+      const addresses = {
+        "low-risk": import.meta.env.VITE_LOW_RISK_VAULT,
+        "medium-risk": import.meta.env.VITE_MEDIUM_RISK_VAULT,
+        "high-risk": import.meta.env.VITE_HIGH_RISK_VAULT,
+      };
+
+      const newStrategies: Record<string, string[]> = {};
+
+      for (const [key, addr] of Object.entries(addresses)) {
+        if (!addr) continue;
+        try {
+          const allocations = (await readContract(config, {
+            address: addr as `0x${string}`,
+            abi: BASE_VAULT_ABI,
+            functionName: "getAllStrategies",
+          })) as any[];
+
+          const activeStrats = allocations
+            .filter((a: any) => a.active)
+            .slice(0, 3);
+
+          const names = await Promise.all(
+            activeStrats.map(async (s: any) => {
+              try {
+                return (await readContract(config, {
+                  address: s.strategy,
+                  abi: STRATEGY_ABI,
+                  functionName: "name",
+                })) as string;
+              } catch {
+                return `${s.strategy.slice(0, 6)}...`;
+              }
+            }),
+          );
+          newStrategies[key] =
+            names.length > 0 ? names : ["No Active Strategies"];
+        } catch (e) {
+          console.error(`Error fetching strategies for ${key}`, e);
+          newStrategies[key] = ["Error Loading"];
+        }
+      }
+      setVaultStrategies(newStrategies);
     } catch (err) {
       console.error("Error fetching vault data:", err);
     }
@@ -552,8 +615,10 @@ export default function VaultPage() {
                           </p>
 
                           {/* Strategies */}
-                          <div className="flex flex-wrap gap-2">
-                            {vault.strategies.slice(0, 3).map((s, i) => (
+                          {/* Strategies & Modal Trigger */}
+                          {/* Strategies & Modal Trigger */}
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {(vaultStrategies[vault.id] || []).map((s, i) => (
                               <span
                                 key={i}
                                 className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded-md border border-white/5"
@@ -562,6 +627,25 @@ export default function VaultPage() {
                               </span>
                             ))}
                           </div>
+
+                          <button
+                            onClick={() =>
+                              setModalVault({
+                                address:
+                                  vault.id === "low-risk"
+                                    ? import.meta.env.VITE_LOW_RISK_VAULT
+                                    : vault.id === "medium-risk"
+                                      ? import.meta.env.VITE_MEDIUM_RISK_VAULT
+                                      : import.meta.env.VITE_HIGH_RISK_VAULT,
+                                name: vault.name,
+                                color: vault.color,
+                              })
+                            }
+                            className="flex items-center gap-2 text-xs font-medium text-gray-500 hover:text-white transition-colors mt-2"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                            View Strategy Details
+                          </button>
                         </div>
                       </div>
 
@@ -589,6 +673,215 @@ export default function VaultPage() {
           </div>
         </section>
       </div>
+
+      {/* Global Modal */}
+      {modalVault && (
+        <StrategyListModal
+          vaultAddress={modalVault.address}
+          vaultName={modalVault.name}
+          vaultColor={modalVault.color}
+          onClose={() => setModalVault(null)}
+        />
+      )}
     </DefaultLayout>
   );
 }
+
+const StrategyListModal = ({
+  vaultAddress,
+  vaultName,
+  vaultColor,
+  onClose,
+}: any) => {
+  const [strategies, setStrategies] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchStrategies = async () => {
+    if (!vaultAddress) return;
+    setLoading(true);
+    try {
+      // 1. Get Strategy Allocations
+      const allocations = (await readContract(config, {
+        address: vaultAddress,
+        abi: BASE_VAULT_ABI,
+        functionName: "getAllStrategies",
+      })) as any[];
+
+      // 2. Fetch details for each
+      const details = await Promise.all(
+        allocations.map(async (alloc: any) => {
+          if (!alloc.active) return null;
+
+          try {
+            const totalAssets = (await readContract(config, {
+              address: alloc.strategy,
+              abi: STRATEGY_ABI,
+              functionName: "totalAssets",
+            })) as bigint;
+
+            const apy = (await readContract(config, {
+              address: alloc.strategy,
+              abi: STRATEGY_ABI,
+              functionName: "estimatedAPY",
+            })) as bigint;
+
+            // Try to get name, fallback to address
+            let name = "Unknown Strategy";
+            try {
+              name = (await readContract(config, {
+                address: alloc.strategy,
+                abi: STRATEGY_ABI,
+                functionName: "name",
+              })) as string;
+            } catch {
+              name = `${alloc.strategy.slice(0, 6)}...${alloc.strategy.slice(-4)}`;
+            }
+
+            return {
+              address: alloc.strategy,
+              allocation: alloc.allocationBps,
+              active: alloc.active,
+              totalAssets: formatUnits(totalAssets, 6), // Assuming USDC 6 decimals
+              apy: Number(apy) / 100, // Basis points to percent
+              name,
+            };
+          } catch (e) {
+            console.error("Error fetching strategy details", e);
+            return {
+              address: alloc.strategy,
+              allocation: alloc.allocationBps,
+              active: alloc.active,
+              totalAssets: "0",
+              apy: 0,
+              name: "Error Loading",
+              error: true,
+            };
+          }
+        }),
+      );
+
+      setStrategies(details.filter((s) => s !== null));
+    } catch (e) {
+      console.error("Failed to fetch strategies", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStrategies();
+  }, [vaultAddress]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-[#16181D] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+          <div>
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              Strategies
+              <span
+                className={`text-xs px-2 py-0.5 rounded border ${vaultColor.replace("text-", "text-").replace("-400", "-500/40 border-") + "/30 bg-" + vaultColor.split("-")[1] + "-500/10"}`}
+              >
+                {vaultName}
+              </span>
+            </h3>
+            <p className="text-gray-400 text-xs mt-1">
+              Breakdown of active yield sources
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-white transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 max-h-[60vh] overflow-y-auto">
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-20 bg-white/5 animate-pulse rounded-xl"
+                />
+              ))}
+            </div>
+          ) : strategies.length > 0 ? (
+            <div className="space-y-3">
+              {strategies.map((s, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white/5 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                        {s.name}
+                        {s.active ? (
+                          <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded border border-green-500/20 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" /> Healthy
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/20">
+                            Inactive
+                          </span>
+                        )}
+                      </h4>
+                      <div className="flex items-center gap-1 text-[10px] text-gray-500 font-mono mt-1">
+                        {s.address}
+                        <ExternalLink
+                          className="w-3 h-3 hover:text-white cursor-pointer"
+                          onClick={() =>
+                            navigator.clipboard.writeText(s.address)
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold text-lg ${vaultColor}`}>
+                        {s.apy.toFixed(2)}% APY
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/5">
+                    <div>
+                      <p className="text-[10px] text-gray-500 uppercase">
+                        Assets
+                      </p>
+                      <p className="text-sm font-mono text-white">
+                        ${formatNumber(s.totalAssets)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500 uppercase">
+                        Allocation
+                      </p>
+                      <p className="text-sm font-mono text-white">
+                        {(s.allocation / 100).toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10 text-gray-500">
+              <AlertTriangle className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p>No active strategies found.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/5 bg-white/[0.02] text-center">
+          <p className="text-[10px] text-gray-500">
+            Strategies are automatically rebalanced to optimize yield.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};

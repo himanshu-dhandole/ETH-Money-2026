@@ -25,6 +25,7 @@ import {
 import RESERVE_ABI from "@/abi/Reserve.json";
 import VAULT_ROUTER_ABI from "@/abi/VaultRouter.json";
 import VIRTUAL_USDC_ABI from "@/abi/VirtualUSDC.json";
+import BASE_VAULT_ABI from "@/abi/BaseVault.json";
 
 // Contract Addresses
 const RESERVE_ADDRESS = (import.meta.env.VITE_RESERVE || "") as `0x${string}`;
@@ -395,10 +396,12 @@ const Admin = () => {
                   <StrategyAuthForm
                     reserveAddress={RESERVE_ADDRESS}
                     reserveAbi={RESERVE_ABI}
-                    onSuccess={fetchData}
                   />
                 </div>
               </div>
+
+              {/* Vault Management Component */}
+              <VaultManagementSection />
             </div>
 
             {/* 2. Addresses & Config */}
@@ -580,6 +583,147 @@ const StrategyAuthForm = ({ reserveAddress, reserveAbi, onSuccess }: any) => {
       >
         {loading ? "..." : "Authorize"}
       </button>
+    </div>
+  );
+};
+
+const VaultManagementSection = () => {
+  const [activeTab, setActiveTab] = useState<"low" | "mid" | "high">("low");
+  const [strategyAddr, setStrategyAddr] = useState("");
+  const [allocation, setAllocation] = useState("2000"); // 20% default
+  const [loading, setLoading] = useState(false);
+
+  const vaultAddress =
+    activeTab === "low"
+      ? LOW_RISK_VAULT
+      : activeTab === "mid"
+        ? MID_RISK_VAULT
+        : HIGH_RISK_VAULT;
+
+  const handleAddStrategy = async () => {
+    if (!strategyAddr) return;
+    setLoading(true);
+    const toastId = toast.loading("Adding Strategy...");
+    try {
+      const tx = await writeContract(config, {
+        address: vaultAddress,
+        abi: BASE_VAULT_ABI,
+        functionName: "addStrategy",
+        args: [strategyAddr, parseInt(allocation)],
+      });
+      await waitForTransactionReceipt(config, { hash: tx });
+      toast.success("Strategy Added!", { id: toastId });
+      setStrategyAddr("");
+    } catch (e: any) {
+      toast.error(e?.shortMessage || "Failed to Add Strategy", { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRebalance = async () => {
+    setLoading(true);
+    const toastId = toast.loading("Rebalancing Vault...");
+    try {
+      const tx = await writeContract(config, {
+        address: vaultAddress,
+        abi: BASE_VAULT_ABI,
+        functionName: "rebalance",
+      });
+      await waitForTransactionReceipt(config, { hash: tx });
+      toast.success("Vault Rebalanced!", { id: toastId });
+    } catch (e: any) {
+      toast.error(e?.shortMessage || "Rebalance Failed", { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="glass-panel bg-[#16181D]/50 border border-white/10 rounded-2xl p-8 backdrop-blur-xl">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+        <h2 className="text-2xl font-bold flex items-center gap-3">
+          <Settings className="w-6 h-6 text-orange-400" />
+          Vault Management
+        </h2>
+
+        {/* Vault Selector */}
+        <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
+          {(["low", "mid", "high"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setActiveTab(v)}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${activeTab === v ? "bg-white/10 text-white shadow-sm" : "text-gray-500 hover:text-gray-300"}`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Add Strategy */}
+        <div className="space-y-4">
+          <label className="text-sm text-gray-400 font-semibold uppercase tracking-wider">
+            Add Strategy
+          </label>
+          <div className="space-y-2">
+            <input
+              type="text"
+              placeholder="Strategy Address (0x...)"
+              value={strategyAddr}
+              onChange={(e) => setStrategyAddr(e.target.value)}
+              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 font-mono text-sm outline-none focus:ring-1 focus:ring-orange-500"
+            />
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                placeholder="Alloc (BPS)"
+                value={allocation}
+                onChange={(e) => setAllocation(e.target.value)}
+                className="w-32 bg-black/20 border border-white/10 rounded-xl px-4 py-3 font-mono text-sm outline-none focus:ring-1 focus:ring-orange-500"
+              />
+              <span className="text-xs text-gray-500">
+                Basis Points (1000 = 10%)
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleAddStrategy}
+            disabled={loading || !strategyAddr}
+            className="w-full py-3 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded-xl font-bold transition-all"
+          >
+            {loading ? "..." : "Add Strategy"}
+          </button>
+        </div>
+
+        {/* Actions */}
+        <div className="space-y-4">
+          <label className="text-sm text-gray-400 font-semibold uppercase tracking-wider">
+            Maintenance
+          </label>
+          <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-3">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-400">Current Vault:</span>
+              <span className="font-mono text-white bg-black/40 px-2 py-1 rounded">
+                {vaultAddress?.slice(0, 6)}...{vaultAddress?.slice(-4)}
+              </span>
+            </div>
+            <button
+              onClick={handleRebalance}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 text-white rounded-lg font-bold transition-all"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Rebalance Vault
+            </button>
+            <p className="text-[10px] text-gray-500 text-center leading-relaxed">
+              Rebalancing will harvest all strategies, withdraw assets, and
+              redistribute according to new allocations.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
