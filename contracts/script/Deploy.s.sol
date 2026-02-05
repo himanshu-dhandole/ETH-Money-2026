@@ -28,6 +28,7 @@ import "../src/YieldReserve.sol";
 contract Deploy is Script {
     // Native Arc USDC address (6 decimals)
     address constant ARC_USDC = 0x3600000000000000000000000000000000000000;
+    address constant ARC_ENS_REGISTERY = 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e;
 
     IERC20 public usdc;
     RiskNFT public riskNFT;
@@ -124,7 +125,7 @@ contract Deploy is Script {
     }
 
     function _deployNewInfrastructure() internal {
-        riskNFT = new RiskNFT();
+        riskNFT = new RiskNFT(ARC_ENS_REGISTERY);
         console.log("RiskNFT deployed at:", address(riskNFT));
 
         factory = new StrategyFactory();
