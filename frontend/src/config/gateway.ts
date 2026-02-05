@@ -30,10 +30,12 @@ export enum GatewayDomain {
 // Address: 0x0077777d7EBA4688BDeF3E311b846F25870A19B9
 
 export const GATEWAY_WALLET_ADDRESS = "0x0077777d7EBA4688BDeF3E311b846F25870A19B9" as Address;
+export const GATEWAY_MINTER_ADDRESS = "0x0022222ABE238Cc2C7Bb1f21003F0a260052475B" as Address; // Arc testnet Gateway Minter
 export const GATEWAY_API_URL = "https://gateway-api-testnet.circle.com/v1";
 
 export interface GatewayConfig {
     walletAddress: Address;
+    minterAddress: Address;
     usdcAddress: Address;
     domainId: number;
 }
@@ -41,17 +43,15 @@ export interface GatewayConfig {
 export const gatewayConfig: Record<number, GatewayConfig> = {
     11155111: { // Sepolia
         walletAddress: GATEWAY_WALLET_ADDRESS,
+        minterAddress: GATEWAY_MINTER_ADDRESS, // Same minter address across chains
         usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238" as Address, // Native USDC on Sepolia
         domainId: 0,
     },
     5042002: { // Arc Testnet
         walletAddress: GATEWAY_WALLET_ADDRESS,
-        usdcAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as Address, // Using Base USDC as placeholder or VIRTUAL_USDC constant from usage
-        // *Correction*: I need the real USDC address on Arc.
-        // In `deposit.tsx` lines 20: `import.meta.env.VITE_VIRTUAL_USDC_ADDRESS`.
-        // I should use that or allow dynamic injection.
-        // For this config file, I'll export a helper.
-        domainId: 9999, // TBD
+        minterAddress: GATEWAY_MINTER_ADDRESS, // Arc testnet Gateway Minter
+        usdcAddress: "0x3600000000000000000000000000000000000000" as Address, // Arc testnet USDC
+        domainId: 26, // Arc Domain (matches CCTP config)
     }
 };
 
