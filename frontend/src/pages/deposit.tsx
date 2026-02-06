@@ -8,7 +8,7 @@ import {
 } from "@wagmi/core";
 import { useAccount } from "wagmi";
 import DefaultLayout from "@/layouts/default";
-import { config } from "@/config/wagmiConfig";
+import { config, arcTestnet } from "@/config/wagmiConfig";
 import VIRTUAL_USDC_ABI from "@/abi/VirtualUSDC.json";
 import VAULT_ROUTER_ABI from "@/abi/VaultRouter.json";
 import GATEWAY_WALLET_ABI from "@/abi/GatewayWallet.json";
@@ -21,7 +21,7 @@ import {
   Gift,
   Wallet,
 } from "lucide-react";
-import { formatUnits, parseUnits, pad, toHex, maxUint256 } from "viem";
+import { formatUnits, parseUnits, pad, toHex, maxUint256, createPublicClient, http } from "viem";
 import {
   useSwitchChain,
   useChainId,
@@ -53,12 +53,6 @@ interface UserState {
   totalDeposited: string;
   userValue: string;
 }
-
-interface VaultState {
-  tvl: string;
-  apy: string;
-}
-
 /* --------------------------------------------------
    HELPERS
 -------------------------------------------------- */
@@ -95,12 +89,6 @@ export default function Deposit() {
     totalDeposited: "0",
     userValue: "0",
   });
-
-  const [_vaultState, setVaultState] = useState<VaultState>({
-    tvl: "0",
-    apy: "0",
-  });
-
   const [gatewayBalances, setGatewayBalances] = useState<{
     total: number;
     maxTransferable: number;
@@ -417,7 +405,47 @@ export default function Deposit() {
 
       await waitForTransactionReceipt(config, { hash: mintTx });
 
-      toast.success(`Bridge complete! Minted ${formatUnits(amount, 6)} USDC on Arc`, {
+      toast.success(`Bridge complete! Minted ${formatUnits(amount, 6)} USDC`, { id: toastId });
+
+      /* ---------- Auto-Deposit to Vault ---------- */
+      toast.loading("Auto-depositing to Vault...", { id: toastId });
+
+      // Arc USDC Address (from ENV)
+      const arcUsdc = USDC;
+
+      // Check Allowance
+      const vaultAllowance = (await readContract(config, {
+        address: arcUsdc,
+        abi: VIRTUAL_USDC_ABI,
+        functionName: "allowance",
+        args: [address, VAULT],
+        chainId: 5042002,
+      })) as bigint;
+
+      if (vaultAllowance < amount) {
+        toast.loading("Approving Vault...", { id: toastId });
+        const approveTx = await writeContract(config, {
+          address: arcUsdc,
+          abi: VIRTUAL_USDC_ABI,
+          functionName: "approve",
+          args: [VAULT, amount],
+          chainId: 5042002,
+        });
+        await waitForTransactionReceipt(config, { hash: approveTx });
+      }
+
+      // Deposit
+      toast.loading("Depositing to Vault...", { id: toastId });
+      const depositTx = await writeContract(config, {
+        address: VAULT,
+        abi: VAULT_ROUTER_ABI,
+        functionName: "deposit",
+        args: [amount],
+        chainId: 5042002,
+      });
+      await waitForTransactionReceipt(config, { hash: depositTx });
+
+      toast.success(`Success! Deposited ${formatUnits(amount, 6)} vUSDC into Vault`, {
         id: toastId,
       });
       setAmountInput("");
@@ -439,24 +467,59 @@ export default function Deposit() {
     switchChain,
   ]);
 
+  /* --------------------------------------------------
+     DATA FETCHING
+  -------------------------------------------------- */
+
   const fetchUserData = useCallback(async () => {
     if (!address) return;
     try {
+      // Determine USDC address based on chain
+      // Sepolia: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
+      // Arc: USDC (0x36...)
+      const currentUsdcAddress = chainId === 11155111
+        ? "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
+        : USDC;
+
       const balance = (await readContract(config, {
-        address: USDC,
+        address: currentUsdcAddress,
         abi: VIRTUAL_USDC_ABI,
         functionName: "balanceOf",
         args: [address],
       })) as bigint;
 
-      const position = (await readContract(config, {
-        address: VAULT,
-        abi: VAULT_ROUTER_ABI,
-        functionName: "getUserPosition",
-        args: [address],
-      })) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+      // Always fetch vault position regardless of chain
+      // If not on Arc, use public client to read Arc data
+      let totalDeposited = 0n;
+      let totalValue = 0n;
 
-      const [, , , , , , totalValue, totalDeposited] = position;
+      if (chainId === 5042002) {
+        const position = (await readContract(config, {
+          address: VAULT,
+          abi: VAULT_ROUTER_ABI,
+          functionName: "getUserPosition",
+          args: [address],
+        })) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+        [, , , , , , totalValue, totalDeposited] = position;
+      } else {
+        // Use public client to fetch Arc data if on Sepolia
+        const publicClient = createPublicClient({
+          chain: arcTestnet,
+          transport: http()
+        });
+
+        try {
+          const position = (await publicClient.readContract({
+            address: VAULT,
+            abi: VAULT_ROUTER_ABI,
+            functionName: "getUserPosition",
+            args: [address],
+          })) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+          [, , , , , , totalValue, totalDeposited] = position;
+        } catch (e) {
+          console.error("Failed to fetch vault data via public client", e);
+        }
+      }
 
       setUserState({
         USDCBalance: formatUnits(balance, 6),
@@ -467,33 +530,7 @@ export default function Deposit() {
     } catch (err) {
       console.error("Error fetching user data:", err);
     }
-  }, [address]);
-
-  const fetchVaultData = useCallback(async () => {
-    try {
-      const stats = (await readContract(config, {
-        address: VAULT,
-        abi: VAULT_ROUTER_ABI,
-        functionName: "getProtocolStats",
-      })) as [bigint, bigint, bigint, bigint];
-      const [totalValueLocked] = stats;
-
-      const apys = (await readContract(config, {
-        address: VAULT,
-        abi: VAULT_ROUTER_ABI,
-        functionName: "getVaultAPYs",
-      })) as [bigint, bigint, bigint];
-      const [lowAPY, medAPY, highAPY] = apys;
-      const averageAPY = (Number(lowAPY) + Number(medAPY) + Number(highAPY)) / 3 / 100;
-
-      setVaultState({
-        tvl: formatUnits(totalValueLocked, 6),
-        apy: averageAPY.toFixed(1),
-      });
-    } catch (err) {
-      console.error("Error fetching vault data:", err);
-    }
-  }, []);
+  }, [address, chainId]);
 
   // Deposit to Vault (Standard)
   const handleDeposit = useCallback(async () => {
@@ -530,14 +567,14 @@ export default function Deposit() {
       await waitForTransactionReceipt(config, { hash: tx });
       toast.success(`Deposited ${formatNumber(amountInput)} vUSDC`, { id: toastId });
       setAmountInput("");
-      await Promise.all([fetchUserData(), fetchVaultData()]);
+      await fetchUserData();
     } catch (err) {
       toast.error("Deposit failed", { id: toastId });
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [address, amountInput, fetchUserData, fetchVaultData]);
+  }, [address, amountInput, fetchUserData]);
 
   // Withdraw from Vault
   const handleWithdraw = useCallback(async () => {
@@ -568,14 +605,14 @@ export default function Deposit() {
       await waitForTransactionReceipt(config, { hash: tx });
       toast.success(`Withdrew ${formatNumber(amountInput)} vUSDC`, { id: toastId });
       setAmountInput("");
-      await Promise.all([fetchUserData(), fetchVaultData()]);
+      await fetchUserData();
     } catch (err) {
       toast.error("Withdrawal failed", { id: toastId });
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [address, amountInput, userState.userValue, fetchUserData, fetchVaultData]);
+  }, [address, amountInput, userState.userValue, fetchUserData]);
 
   // Withdraw from Vault AND Bridge to Sepolia
   const handleWithdrawAndBridge = useCallback(async () => {
@@ -589,25 +626,34 @@ export default function Deposit() {
         throw new Error("Switched to Arc. Please retry.");
       }
       const amount = parseUnits(amountInput, 6);
-      const walletBalance = parseUnits(userState.USDCBalance, 6);
 
-      // Withdraw if needed
-      if (walletBalance < amount) {
-        toast.loading("Withdrawing from Vault...", { id: toastId });
-        const needed = amount - walletBalance;
-        const totalValue = parseUnits(userState.userValue, 6);
-        if (walletBalance + totalValue < amount) throw new Error("Insufficient funds");
-        const percentageBps = (needed * 10000n) / totalValue;
+
+      // Always withdraw from Vault first (Withdraw Step)
+      toast.loading("Withdrawing from Vault...", { id: toastId });
+      const totalValue = parseUnits(userState.userValue, 6);
+
+      if (totalValue < amount) throw new Error("Insufficient Vault funds");
+
+      let vaultTx;
+      if (amount >= totalValue) {
+        vaultTx = await writeContract(config, {
+          address: VAULT,
+          abi: VAULT_ROUTER_ABI,
+          functionName: "withdrawAll",
+          gas: 5_000_000n,
+        });
+      } else {
+        const percentageBps = (amount * 10000n) / totalValue;
         const bps = percentageBps > 10000n ? 10000n : percentageBps;
-        const tx = await writeContract(config, {
+        vaultTx = await writeContract(config, {
           address: VAULT,
           abi: VAULT_ROUTER_ABI,
           functionName: "withdrawPartial",
           args: [bps],
           gas: 5_000_000n,
         });
-        await waitForTransactionReceipt(config, { hash: tx });
       }
+      await waitForTransactionReceipt(config, { hash: vaultTx });
 
       if (!gateway) throw new Error("Gateway config not found");
 
@@ -630,12 +676,142 @@ export default function Deposit() {
         await waitForTransactionReceipt(config, { hash: tx });
       }
 
-      // Simulating Bridge for now (as per user's previous code)
-      toast.loading("Simulating Bridge Intent...", { id: toastId });
-      await new Promise(r => setTimeout(r, 2000));
-      toast.success("Bridge Initiated (Simulated)", { id: toastId });
+      /* ---------- Deposit to Gateway Wallet ---------- */
+      toast.loading("Depositing to Arc Gateway...", { id: toastId });
+      const tx = await writeContract(config, {
+        address: gateway.walletAddress,
+        abi: GATEWAY_WALLET_ABI,
+        functionName: "deposit",
+        args: [gateway.usdcAddress, amount],
+      });
+
+      toast.loading("Waiting for deposit confirmation...", { id: toastId });
+      await waitForTransactionReceipt(config, {
+        hash: tx,
+        timeout: 60_000,
+      });
+
+      toast.loading("Waiting for Gateway to index deposit (approx 45s)...", { id: toastId });
+      await new Promise(resolve => setTimeout(resolve, 45000));
+
+      toast.loading("Creating cross-chain transfer intent...", { id: toastId });
+
+      /* ---------- EIP-712 ---------- */
+      const salt = pad(toHex(BigInt(Date.now())), { size: 32 });
+      const domain = { name: "GatewayWallet", version: "1" } as const;
+      const types = {
+        EIP712Domain: [{ name: "name", type: "string" }, { name: "version", type: "string" }],
+        TransferSpec: [
+          { name: "version", type: "uint32" },
+          { name: "sourceDomain", type: "uint32" },
+          { name: "destinationDomain", type: "uint32" },
+          { name: "sourceContract", type: "bytes32" },
+          { name: "destinationContract", type: "bytes32" },
+          { name: "sourceToken", type: "bytes32" },
+          { name: "destinationToken", type: "bytes32" },
+          { name: "sourceDepositor", type: "bytes32" },
+          { name: "destinationRecipient", type: "bytes32" },
+          { name: "sourceSigner", type: "bytes32" },
+          { name: "destinationCaller", type: "bytes32" },
+          { name: "value", type: "uint256" },
+          { name: "salt", type: "bytes32" },
+          { name: "hookData", type: "bytes" },
+        ],
+        BurnIntent: [
+          { name: "maxBlockHeight", type: "uint256" },
+          { name: "maxFee", type: "uint256" },
+          { name: "spec", type: "TransferSpec" },
+        ],
+      } as const;
+
+      // Helper to convert address to bytes32 (per Circle docs)
+      const addressToBytes32 = (addr: `0x${string}`): `0x${string}` => {
+        return pad(addr.toLowerCase() as `0x${string}`, { size: 32 });
+      };
+
+      const sepoliaGateway = getGatewayConfig(11155111);
+      if (!sepoliaGateway) throw new Error("Sepolia Gateway config not found");
+
+      // Build the burn intent for Arc -> Sepolia
+      const burnIntent = {
+        maxBlockHeight: maxUint256,
+        maxFee: 2_010000n, // 2.01 USDC
+        spec: {
+          version: 1,
+          sourceDomain: 26, // Arc
+          destinationDomain: 0, // Sepolia
+          sourceContract: addressToBytes32(gateway.walletAddress),
+          destinationContract: addressToBytes32(sepoliaGateway.minterAddress), // Destination Minter (Sepolia)
+          sourceToken: addressToBytes32(gateway.usdcAddress),
+          destinationToken: addressToBytes32("0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"), // Sepolia USDC
+          sourceDepositor: addressToBytes32(address!),
+          destinationRecipient: addressToBytes32(address!),
+          sourceSigner: addressToBytes32(address!),
+          destinationCaller: addressToBytes32("0x0000000000000000000000000000000000000000"),
+          value: amount,
+          salt,
+          hookData: "0x" as `0x${string}`,
+        },
+      };
+
+      const signature = await signTypedDataAsync({
+        domain,
+        types,
+        primaryType: "BurnIntent",
+        message: burnIntent,
+      });
+
+      /* ---------- API ---------- */
+      toast.loading("Submitting burn intent to Gateway...", { id: toastId });
+      const res = await fetch(`${GATEWAY_API_URL}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([{ burnIntent, signature }], (_, v) => typeof v === 'bigint' ? v.toString() : v),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Gateway API error: ${res.status} ${errorText}`);
+      }
+
+      const apiResponse = await res.json();
+      const attestation = apiResponse?.attestation;
+      const operatorSig = apiResponse?.signature;
+
+      if (!attestation || !operatorSig) {
+        throw new Error("Missing attestation or signature in Gateway response");
+      }
+
+      /* ---------- Mint on Destination Chain (Sepolia) ---------- */
+      toast.loading("Switching to Sepolia to mint USDC...", { id: toastId });
+
+      if ((chainId as number) !== 11155111) {
+        await switchChain({ chainId: 11155111 });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      // Gateway Minter ABI (same as above)
+      const GATEWAY_MINTER_ABI = [
+        {
+          type: "function", name: "gatewayMint",
+          inputs: [{ name: "attestationPayload", type: "bytes" }, { name: "signature", type: "bytes" }],
+          outputs: [], stateMutability: "nonpayable",
+        },
+      ] as const;
+
+      toast.loading("Minting USDC on Sepolia...", { id: toastId });
+      const mintTx = await writeContract(config, {
+        address: sepoliaGateway.minterAddress,
+        abi: GATEWAY_MINTER_ABI,
+        functionName: "gatewayMint",
+        args: [attestation as `0x${string}`, operatorSig as `0x${string}`],
+        chainId: 11155111,
+      });
+
+      await waitForTransactionReceipt(config, { hash: mintTx });
+      toast.success(`Bridge complete! Minted ${formatUnits(amount, 6)} USDC on Sepolia`, { id: toastId });
       setAmountInput("");
-      await Promise.all([fetchUserData(), fetchVaultData()]);
+      await fetchUserData();
 
     } catch (e: any) {
       console.error(e);
@@ -643,7 +819,7 @@ export default function Deposit() {
     } finally {
       setLoading(false);
     }
-  }, [address, amountInput, chainId, switchChain, userState, fetchUserData, fetchVaultData]);
+  }, [address, amountInput, chainId, switchChain, userState, fetchUserData, signTypedDataAsync]);
 
   const quickAmounts = ["100", "500", "1000", "5000"];
   const quickLabels = ["$100", "$500", "$1k", "$5k"];
@@ -651,11 +827,10 @@ export default function Deposit() {
   useEffect(() => {
     if (address) {
       fetchUserData();
-      fetchVaultData();
-      const interval = setInterval(() => { fetchUserData(); fetchVaultData(); }, 20000);
+      const interval = setInterval(() => { fetchUserData(); }, 20000);
       return () => clearInterval(interval);
     }
-  }, [address, fetchUserData, fetchVaultData]);
+  }, [address, fetchUserData]);
 
   const handleHarvest = async () => {
     if (!address) return;
