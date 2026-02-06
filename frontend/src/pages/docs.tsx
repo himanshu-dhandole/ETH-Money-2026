@@ -1,5 +1,4 @@
 import DefaultLayout from "@/layouts/default";
-import { useState } from "react";
 import {
   ArrowRight,
   Shield,
@@ -14,11 +13,9 @@ import {
   TrendingUp,
   PieChart,
   Coins,
-  X,
 } from "lucide-react";
 
 export default function DocsPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <DefaultLayout>
@@ -188,7 +185,6 @@ export default function DocsPage() {
                         src="/architecture-original.jpg"
                         alt="AuraVault System Architecture Diagram"
                         className="w-full max-w-4xl h-auto rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => setIsModalOpen(true)}
                       />
                     </div>
                     <p className="text-xs text-gray-500 text-center mt-2 italic">
