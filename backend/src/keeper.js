@@ -12,6 +12,9 @@ const { adjustAllocationsTo100 } = require('./utils/allocations');
 const VAULT_ABI = require('./abis/vault.json');
 const STRATEGY_ABI = require('./abis/strategy.json');
 
+// API Server for user-initiated rebalances
+const { startAPIServer, userRebalanceQueue } = require('./api');
+
 // ============================================
 // NITROLITE KEEPER SERVICE CLASS
 // ============================================
@@ -36,19 +39,22 @@ class NitroliteKeeperService {
         this.isRunning = false;
         this.lastRebalanceTime = 0;
         this.lastHarvestTime = 0;
+        this.lastUserRebalanceTime = 0; // NEW: Track user rebalance timing
         this.rebalanceCount = 0;
         this.harvestCount = 0;
+        this.userRebalanceCount = 0; // NEW: Track user rebalances
 
         // Client-side rate limiting
         this.lastExecutionTimes = {
             rebalance: 0,
-            harvest: 0
+            harvest: 0,
+            userRebalance: 0 // NEW
         };
 
         logger.info(`📡 Vault Contract: ${config.AURA_VAULT_ADDRESS}`);
-        logger.info(`🤖 AI API: ${config.AI_API_URL}`);
         logger.info(`⏰ Rebalance Interval: ${config.REBALANCE_INTERVAL / 60000} minutes`);
         logger.info(`⏰ Harvest Interval: ${config.HARVEST_INTERVAL / 60000} minutes`);
+        logger.info(`⏰ User Rebalance Interval: 60 minutes`); // NEW
     }
 
     // ============================================
@@ -394,12 +400,84 @@ class NitroliteKeeperService {
     }
 
     // ============================================
+    // USER-INITIATED REBALANCE CYCLE
+    // ============================================
+
+    async performUserRebalanceCycle() {
+        if (userRebalanceQueue.length === 0) {
+            logger.debug('📭 No user rebalance requests in queue');
+            return;
+        }
+
+        logger.info(`👥 USER REBALANCE CYCLE STARTED [Queue: ${userRebalanceQueue.length} requests]`);
+
+        try {
+            // Group requests by vault tier
+            const requestsByTier = {
+                0: [], // Low Risk
+                1: [], // Medium Risk
+                2: []  // High Risk
+            };
+
+            // Copy queue and clear it immediately to avoid duplicates
+            const requestsToProcess = [...userRebalanceQueue];
+            userRebalanceQueue.length = 0;
+
+            // Group by tier
+            requestsToProcess.forEach(request => {
+                requestsByTier[request.vaultId].push(request.user);
+            });
+
+            // Process each tier
+            for (let tier = 0; tier < 3; tier++) {
+                const users = requestsByTier[tier];
+                if (users.length === 0) continue;
+
+                logger.info(`\n━━━ TIER ${tier}: Processing ${users.length} user rebalance(s) ━━━`);
+
+                try {
+                    const vault = this.getVaultForTier(tier);
+
+                    logger.info(`   Rebalancing ${users.length} users in batch...`);
+
+                    // Call batchRebalanceUsers for all users in this tier
+                    // This uses the gas-efficient batch architecture
+                    const tx = await vault.batchRebalanceUsers(users, {
+                        gasLimit: config.GAS_LIMIT_REBALANCE * Math.ceil(users.length / 5) // Dynamic gas limit estimate
+                    });
+
+                    logger.info(`   🔄 Batch TX sent: ${tx.hash}`);
+                    const receipt = await tx.wait();
+                    logger.info(`   ✅ Batch rebalance confirmed in block ${receipt.blockNumber}`);
+
+                    this.userRebalanceCount += users.length;
+
+                } catch (tierError) {
+                    logger.error(`   ❌ Error processing tier ${tier} batch:`, tierError);
+                    // In a production system, you might want to re-queue these or try individual fallbacks
+                }
+            }
+
+            this.lastUserRebalanceTime = Date.now();
+            this.lastExecutionTimes.userRebalance = Date.now();
+
+            logger.info(`✅ USER REBALANCE CYCLE COMPLETED [Total processed: ${requestsToProcess.length}]`);
+            logger.info(`📊 Total user rebalances: ${this.userRebalanceCount}`);
+
+        } catch (error) {
+            logger.error('❌ USER REBALANCE CYCLE FAILED:', error);
+            // Re-add failed requests back to queue (optional)
+            // userRebalanceQueue.push(...requestsToProcess);
+        }
+    }
+
+    // ============================================
     // MAIN EXECUTION
     // ============================================
 
     async start() {
         try {
-            logger.info('\n Starting Nitrolite Keeper Service...\n');
+            logger.info('\n🚀 Starting Nitrolite Keeper Service...\n');
 
             await dbService.connect();
             await this.verifyNitroliteAuthorization();
@@ -407,17 +485,33 @@ class NitroliteKeeperService {
             // Initialize Nitrolite Service with callback for settlement
             await nitroliteService.init((pending) => this.performNitroliteSettlement(pending));
 
+            // Start API server for user-initiated rebalances
+            startAPIServer();
+
             this.isRunning = true;
 
+            // Initial rebalance cycle
             await this.performRebalanceCycle();
 
-            setInterval(() => { if (this.isRunning) this.performRebalanceCycle(); }, config.REBALANCE_INTERVAL);
-            setInterval(() => { if (this.isRunning) this.performHarvestCycle(); }, config.HARVEST_INTERVAL); // performHarvestCycle needs to be defined? Yes it is
+            // Set up intervals
+            setInterval(() => {
+                if (this.isRunning) this.performRebalanceCycle();
+            }, config.REBALANCE_INTERVAL);
 
-            logger.info(' Nitrolite Keeper Service fully operational!');
+            setInterval(() => {
+                if (this.isRunning) this.performHarvestCycle();
+            }, config.HARVEST_INTERVAL);
+
+            // NEW: User rebalance cycle every hour
+            setInterval(() => {
+                if (this.isRunning) this.performUserRebalanceCycle();
+            }, 60 * 60 * 1000); // 1 hour
+
+            logger.info('✅ Nitrolite Keeper Service fully operational!');
+            logger.info('📡 API Server ready for user rebalance requests');
 
         } catch (error) {
-            logger.error(' Failed to start Nitrolite Keeper Service:', error);
+            logger.error('❌ Failed to start Nitrolite Keeper Service:', error);
             throw error;
         }
     }
