@@ -30,7 +30,6 @@ import {
 import {
   getGatewayConfig,
   GATEWAY_API_URL,
-  GATEWAY_WALLET_ADDRESS,
 } from "@/config/gateway";
 
 /* --------------------------------------------------
@@ -383,7 +382,7 @@ export default function Deposit() {
       toast.loading("Switching to Arc to mint USDC...", { id: toastId });
 
       // Switch to Arc for minting
-      if (chainId !== 5042002) {
+      if ((chainId as number) !== 5042002) {
         await switchChain({ chainId: 5042002 });
         // Wait for chain switch to complete
         await new Promise(resolve => setTimeout(resolve, 2000));
