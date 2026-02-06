@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import DefaultLayout from "@/layouts/default";
 import {
   ShieldCheck,
@@ -20,8 +20,10 @@ import {
 import RISK_ABI from "@/abi/RiskNFT.json";
 import { toast } from "sonner";
 import { RiskAssessmentModal } from "@/components/risk-assessment-modal";
+import VAULT_ROUTER_ABI from "@/abi/VaultRouter.json";
 
 const RISK_ADDRESS = import.meta.env.VITE_RISK_NFT_ADDRESS as `0x${string}`;
+const VAULT_ROUTER = import.meta.env.VITE_VAULT_ROUTER_ADDRESS as `0x${string}`;
 
 export default function Profile() {
   const { address, isConnected } = useAccount();
@@ -46,6 +48,12 @@ export default function Profile() {
     query: {
       enabled: !!address,
     },
+  });
+
+  const { data: vaultApys } = useReadContract({
+    address: VAULT_ROUTER,
+    abi: VAULT_ROUTER_ABI,
+    functionName: "getVaultAPYs",
   });
 
   // Contract Writes
@@ -88,6 +96,23 @@ export default function Profile() {
         ? "text-yellow-400"
         : "text-red-500";
   const identityLevel = Math.floor(riskScore / 20) + 1; // 1-5
+
+  // Calculate Projected APY based on real contract data
+  const projectedApy = useMemo(() => {
+    const apys = vaultApys as [bigint, bigint, bigint] | undefined;
+    if (!apys || !profile) return "0.0";
+
+    const [lowVaultAPY, medVaultAPY, highVaultAPY] = apys;
+    // Contract returns APY scaled by 100 (e.g., 500 = 5%)
+    const lowApyVal = Number(lowVaultAPY) / 100;
+    const medApyVal = Number(medVaultAPY) / 100;
+    const highApyVal = Number(highVaultAPY) / 100;
+
+    // Weighted average based on user's allocation
+    const weighted =
+      (low * lowApyVal + med * medApyVal + high * highApyVal) / 100;
+    return weighted.toFixed(1);
+  }, [vaultApys, profile, low, med, high]);
 
   // Effects
   useEffect(() => {
@@ -317,8 +342,8 @@ export default function Profile() {
                         <div className="text-[10px] uppercase text-gray-500 font-bold tracking-wider mb-1">
                           Projected APY
                         </div>
-                        <div className="text-xl font-bold text-[#135bec]">
-                          {5 + (riskScore * 0.15).toFixed(1)}%
+                        <div className="text-xl font-bold text-[#36cc00]">
+                          {projectedApy}%
                         </div>
                       </div>
                       <div>

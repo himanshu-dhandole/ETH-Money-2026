@@ -151,10 +151,10 @@ export default function VaultPage() {
       const avg = (Number(lowAPY) + Number(medAPY) + Number(highAPY)) / 3 / 100;
 
       setVaultStats({
-        totalTVL: formatUnits(totalValueLocked, 18),
-        lowTVL: formatUnits(lowVaultTVL, 18),
-        medTVL: formatUnits(medVaultTVL, 18),
-        highTVL: formatUnits(highVaultTVL, 18),
+        totalTVL: formatUnits(totalValueLocked, 6),
+        lowTVL: formatUnits(lowVaultTVL, 6),
+        medTVL: formatUnits(medVaultTVL, 6),
+        highTVL: formatUnits(highVaultTVL, 6),
 
         lowAPY: (Number(lowAPY) / 100).toFixed(1),
         medAPY: (Number(medAPY) / 100).toFixed(1),
@@ -212,7 +212,7 @@ export default function VaultPage() {
 
   useEffect(() => {
     fetchVaultData();
-    const interval = setInterval(fetchVaultData, 30000); // 30s update
+    const interval = setInterval(fetchVaultData, 3000); // 30s update
     return () => clearInterval(interval);
   }, [fetchVaultData]);
 
