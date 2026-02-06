@@ -89,11 +89,6 @@ export default function Deposit() {
     totalDeposited: "0",
     userValue: "0",
   });
-  const [gatewayBalances, setGatewayBalances] = useState<{
-    total: number;
-    maxTransferable: number;
-    balances: Array<{ chain: string; amount: number }>;
-  } | null>(null);
 
   /* --------------------------------------------------
      NETWORK SWITCH
@@ -110,89 +105,6 @@ export default function Deposit() {
     [chainId, switchChain],
   );
 
-  /* --------------------------------------------------
-     GATEWAY BALANCE CHECK
-  -------------------------------------------------- */
-
-  const GATEWAY_DOMAINS = {
-    sepolia: 0,
-    avalancheFuji: 1,
-    baseSepolia: 6,
-    arcTestnet: 26,
-    hyperliquidEvmTestnet: 19,
-    seiTestnet: 16,
-    sonicTestnet: 13,
-    worldchainSepolia: 14,
-  };
-
-  const checkGatewayBalances = useCallback(async () => {
-    if (!address) return;
-
-    const toastId = toast.loading("Checking Gateway balances...");
-
-    try {
-      const body = {
-        token: "USDC",
-        sources: Object.entries(GATEWAY_DOMAINS).map(([_, domain]) => ({
-          domain,
-          depositor: address,
-        })),
-      };
-
-      const res = await fetch(
-        "https://gateway-api-testnet.circle.com/v1/balances",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        },
-      );
-
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(`Gateway API error: ${res.status} ${error}`);
-      }
-
-      const result = await res.json();
-
-      let total = 0;
-      const balances = [];
-
-      for (const balance of result.balances) {
-        const chain =
-          Object.keys(GATEWAY_DOMAINS).find(
-            (key) => GATEWAY_DOMAINS[key as keyof typeof GATEWAY_DOMAINS] === balance.domain,
-          ) || `Domain ${balance.domain}`;
-        const amount = parseFloat(balance.balance);
-
-        if (amount > 0) {
-          balances.push({ chain, amount });
-        }
-        total += amount;
-      }
-
-      const maxFee = 2.01;
-      const maxTransferable = Math.max(0, total - maxFee);
-
-      setGatewayBalances({ total, maxTransferable, balances });
-
-      console.log("=".repeat(50));
-      console.log("Gateway Wallet Balances:");
-      console.log("=".repeat(50));
-      balances.forEach(b => {
-        console.log(`${b.chain.padEnd(25)}: ${b.amount.toFixed(6)} USDC`);
-      });
-      console.log("=".repeat(50));
-      console.log(`Total: ${total.toFixed(6)} USDC`);
-      console.log(`Max Transferable: ${maxTransferable.toFixed(6)} USDC (after 2.01 fee)`);
-      console.log("=".repeat(50));
-
-      toast.success(`Total Gateway Balance: ${total.toFixed(2)} USDC`, { id: toastId });
-    } catch (error: any) {
-      console.error("Gateway balance check error:", error);
-      toast.error(error.message || "Failed to check balances", { id: toastId });
-    }
-  }, [address]);
 
   /* --------------------------------------------------
      GATEWAY DEPOSIT (FIXED)
@@ -1030,53 +942,6 @@ export default function Deposit() {
                   <Plus className="w-4 h-4 bg-[#0B0C10] text-white rounded-full p-0.5" />
                   Get USDC from Faucet
                 </a>
-              </div>
-            </div>
-
-            {/* Gateway Balance Check */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-900/20 to-blue-800/20 border border-blue-500/20 p-6 shadow-xl">
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-white mb-1">
-                      Gateway Balance
-                    </h3>
-                    <p className="text-gray-400 text-sm">
-                      Check your USDC balance across all chains
-                    </p>
-                  </div>
-                  <button
-                    onClick={checkGatewayBalances}
-                    disabled={loading || !address}
-                    className="h-10 px-4 bg-[#135bec] hover:bg-[#0d4ab8] text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Check Balance
-                  </button>
-                </div>
-
-                {gatewayBalances && (
-                  <div className="mt-4 space-y-2">
-                    <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                      <span className="text-gray-400 text-sm">Total Balance:</span>
-                      <span className="text-white font-bold">{gatewayBalances.total.toFixed(6)} USDC</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                      <span className="text-gray-400 text-sm">Max Transferable:</span>
-                      <span className="text-green-400 font-bold">{gatewayBalances.maxTransferable.toFixed(6)} USDC</span>
-                    </div>
-                    {gatewayBalances.balances.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-white/10">
-                        <p className="text-xs text-gray-500 mb-2">Balances by chain:</p>
-                        {gatewayBalances.balances.map((b) => (
-                          <div key={b.chain} className="flex justify-between text-xs text-gray-400 py-1">
-                            <span>{b.chain}</span>
-                            <span>{b.amount.toFixed(6)} USDC</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
 
