@@ -1,4 +1,5 @@
 import DefaultLayout from "@/layouts/default";
+import { useState } from "react";
 import {
   ArrowRight,
   Shield,
@@ -13,9 +14,12 @@ import {
   TrendingUp,
   PieChart,
   Coins,
+  X,
 } from "lucide-react";
 
 export default function DocsPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <DefaultLayout>
       <div className="relative min-h-screen w-full bg-[#0B0C10] text-white overflow-x-hidden">
@@ -173,6 +177,45 @@ export default function DocsPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Architecture Diagram */}
+                  <div className="mt-8 bg-white/5 border border-white/10 rounded-xl p-6">
+                    <h4 className="text-white font-semibold mb-4 text-center">
+                      System Architecture
+                    </h4>
+                    <div className="flex justify-center">
+                      <img
+                        src="/architecture-original.jpg"
+                        alt="AuraVault System Architecture Diagram"
+                        className="w-full max-w-4xl h-auto rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => setIsModalOpen(true)}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 text-center mt-2 italic">
+                      Click to view full size
+                    </p>
+                  </div>
+
+                  {/* Modal for full-size image */}
+                  {/* {isModalOpen && (
+                    <div
+                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+                      onClick={() => setIsModalOpen(false)}
+                    >
+                      <button
+                        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                        onClick={() => setIsModalOpen(false)}
+                      >
+                        <X className="w-6 h-6 text-white" />
+                      </button>
+                      <img
+                        src="/architecture-original.jpg"
+                        alt="AuraVault System Architecture Diagram - Full Size"
+                        className="max-w-full max-h-full object-contain rounded-lg"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )} */}
                   <p className="text-sm text-gray-500 italic">
                     Each vault contains 3 active strategies with dynamic
                     allocation based on performance and risk metrics.
