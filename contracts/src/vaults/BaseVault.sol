@@ -53,6 +53,7 @@ contract BaseVault is
         address indexed newRecipient
     );
     event EmergencyExit(uint256 indexed strategyIndex, uint256 assetsRecovered);
+    event UserRebalanceSettled(address indexed user);
 
     error InvalidStrategy();
     error InvalidAllocation();
@@ -268,6 +269,20 @@ contract BaseVault is
     }
 
     function rebalance() external nonReentrant onlyOwner {
+        _rebalance();
+    }
+
+    function batchRebalanceUsers(
+        address[] calldata users
+    ) external nonReentrant onlyVerifiedNitroliteOperator {
+        _rebalance();
+
+        for (uint256 i = 0; i < users.length; i++) {
+            emit UserRebalanceSettled(users[i]);
+        }
+    }
+
+    function _rebalance() internal {
         uint256 totalVaultAssets = totalAssets();
         if (totalVaultAssets == 0) return;
 

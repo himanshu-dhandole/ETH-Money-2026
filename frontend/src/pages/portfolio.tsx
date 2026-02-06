@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import {
   TrendingUp,
   TrendingDown,
@@ -55,6 +55,47 @@ interface Position {
 
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage(); // Hook for signing
+
+  const handleRebalance = async (position: Position) => {
+    if (!address) return;
+    setActionLoading(true);
+    try {
+      const vaultIdMap = { low: 0, medium: 1, high: 2 };
+      const vaultId = vaultIdMap[position.type];
+
+      // 1. Sign the message
+      const message = `Rebalance request for vault ${vaultId} at ${address}`;
+      const signature = await signMessageAsync({ message });
+
+      // 2. Send to backend API
+      const response = await fetch("http://localhost:3001/api/user/rebalance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userAddress: address,
+          vaultId: vaultId,
+          signature: signature,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(`Rebalance queued! Position #${data.position}`);
+      } else if (data.position) {
+        toast.info(`Already queued at position #${data.position}`);
+      } else {
+        toast.error(data.error || "Failed to request rebalance");
+      }
+    } catch (error) {
+      console.error("Rebalance error:", error);
+      toast.error("Failed to sign request");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
@@ -339,29 +380,7 @@ export default function PortfolioPage() {
     }
   };
 
-  const handleRebalance = async () => {
-    if (!address) return;
-    setActionLoading(true);
-    const toastId = toast.loading("Rebalancing portfolio...");
-    try {
-      const tx = await writeContract(config, {
-        address: VAULT_ROUTER,
-        abi: VAULT_ROUTER_ABI,
-        functionName: "rebalance",
-        account: address,
-        gas: 5_000_000n,
-      });
-      await waitForTransactionReceipt(config, { hash: tx });
-      toast.success("Rebalance successful!", { id: toastId });
-      fetchPortfolioData();
-    } catch (err: any) {
-      toast.error("Rebalance failed: " + (err.message || "Unknown error"), {
-        id: toastId,
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
+
 
   const formatCurrency = useCallback(
     (val: number) =>
@@ -510,7 +529,7 @@ export default function PortfolioPage() {
                       const radius = 110;
                       const innerRadius = 75;
                       let currentAngle = -90; // Start from top
-                      
+
                       return displayData.positions.map((pos, idx) => {
                         const percentage = displayData.totalValue > 0
                           ? (pos.currentValue / displayData.totalValue) * 100
@@ -519,35 +538,35 @@ export default function PortfolioPage() {
                         const midAngle = currentAngle + sliceAngle / 2;
                         const startAngle = currentAngle;
                         const endAngle = currentAngle + sliceAngle;
-                        
+
                         const isHovered = activeIndex === idx;
-                        
+
                         // Dynamic label positioning based on slice angle
                         const labelDistance = 200;
                         const elbowDistance = radius + 35;
-                        
+
                         // Calculate if label should be on left or right
                         const isLeft = midAngle > 90 && midAngle < 270;
                         const textAlign = isLeft ? 'end' : 'start';
-                        
+
                         // Point 1: Edge of donut slice
                         const p1x = centerX + Math.cos((midAngle * Math.PI) / 180) * (radius + 5);
                         const p1y = centerY + Math.sin((midAngle * Math.PI) / 180) * (radius + 5);
-                        
+
                         // Point 2: Elbow point (diagonal from slice)
                         const p2x = centerX + Math.cos((midAngle * Math.PI) / 180) * elbowDistance;
                         const p2y = centerY + Math.sin((midAngle * Math.PI) / 180) * elbowDistance;
-                        
+
                         // Point 3: Horizontal line endpoint
-                        const p3x = isLeft 
-                          ? centerX - labelDistance 
+                        const p3x = isLeft
+                          ? centerX - labelDistance
                           : centerX + labelDistance;
                         const p3y = p2y;
-                        
+
                         // Label text position
                         const labelX = isLeft ? p3x - 15 : p3x + 15;
                         const labelY = p3y;
-                        
+
                         // Create SVG path for donut slice
                         const startOuterX = centerX + Math.cos((startAngle * Math.PI) / 180) * radius;
                         const startOuterY = centerY + Math.sin((startAngle * Math.PI) / 180) * radius;
@@ -557,9 +576,9 @@ export default function PortfolioPage() {
                         const startInnerY = centerY + Math.sin((endAngle * Math.PI) / 180) * innerRadius;
                         const endInnerX = centerX + Math.cos((startAngle * Math.PI) / 180) * innerRadius;
                         const endInnerY = centerY + Math.sin((startAngle * Math.PI) / 180) * innerRadius;
-                        
+
                         const largeArc = sliceAngle > 180 ? 1 : 0;
-                        
+
                         const pathData = [
                           `M ${startOuterX} ${startOuterY}`,
                           `A ${radius} ${radius} 0 ${largeArc} 1 ${endOuterX} ${endOuterY}`,
@@ -567,7 +586,7 @@ export default function PortfolioPage() {
                           `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${endInnerX} ${endInnerY}`,
                           'Z'
                         ].join(' ');
-                        
+
                         const result = (
                           <g key={`slice-${idx}`}>
                             {/* Donut slice */}
@@ -584,7 +603,7 @@ export default function PortfolioPage() {
                               onMouseEnter={() => setActiveIndex(idx)}
                               onMouseLeave={() => setActiveIndex(-1)}
                             />
-                            
+
                             {/* Only show everything on hover */}
                             {isHovered && (
                               <>
@@ -600,7 +619,7 @@ export default function PortfolioPage() {
                                     strokeWidth={2.5}
                                     className="transition-all duration-300"
                                   />
-                                  
+
                                   {/* Horizontal line to label */}
                                   <line
                                     x1={p2x}
@@ -612,7 +631,7 @@ export default function PortfolioPage() {
                                     className="transition-all duration-300"
                                   />
                                 </g>
-                                
+
                                 {/* Percentage label */}
                                 <text
                                   x={labelX}
@@ -620,14 +639,14 @@ export default function PortfolioPage() {
                                   textAnchor={textAlign}
                                   className="font-bold transition-all duration-300"
                                   fill={pos.color}
-                                  style={{ 
+                                  style={{
                                     fontSize: '28px',
                                     fontWeight: 'bold'
                                   }}
                                 >
                                   {percentage.toFixed(0)}%
                                 </text>
-                                
+
                                 {/* Vault name */}
                                 <text
                                   x={labelX}
@@ -638,7 +657,7 @@ export default function PortfolioPage() {
                                 >
                                   {pos.vault} Vault
                                 </text>
-                                
+
                                 {/* Amount */}
                                 <text
                                   x={labelX}
@@ -649,7 +668,7 @@ export default function PortfolioPage() {
                                 >
                                   {formatCurrency(pos.currentValue)}
                                 </text>
-                                
+
                                 {/* APY */}
                                 <text
                                   x={labelX}
@@ -664,12 +683,12 @@ export default function PortfolioPage() {
                             )}
                           </g>
                         );
-                        
+
                         currentAngle += sliceAngle;
                         return result;
                       });
                     })()}
-                    
+
                     {/* Center circle */}
                     <circle
                       cx="350"
@@ -679,7 +698,7 @@ export default function PortfolioPage() {
                       stroke="rgba(255,255,255,0.1)"
                       strokeWidth="1"
                     />
-                    
+
                     {/* Center text - Number of vaults */}
                     <text
                       x="350"
@@ -807,19 +826,30 @@ export default function PortfolioPage() {
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
-                          Balance
-                        </p>
-                        <p className="text-xl font-mono font-bold text-white mb-1">
-                          {formatCurrency(pos.currentValue)}
-                        </p>
-                        <span
-                          className={`text-xs font-medium ${pos.profit >= 0 ? "text-emerald-400" : "text-rose-400"}`}
+                      <div className="flex flex-col items-end gap-3">
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
+                            Balance
+                          </p>
+                          <p className="text-xl font-mono font-bold text-white mb-1">
+                            {formatCurrency(pos.currentValue)}
+                          </p>
+                          <span
+                            className={`text-xs font-medium ${pos.profit >= 0 ? "text-emerald-400" : "text-rose-400"}`}
+                          >
+                            {pos.profit >= 0 ? "+" : ""}
+                            {formatCurrency(pos.profit)}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => handleRebalance(pos)}
+                          disabled={actionLoading}
+                          className="px-3 py-1.5 rounded-lg bg-[#135bec]/10 text-[#135bec] hover:bg-[#135bec]/20 border border-[#135bec]/20 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
                         >
-                          {pos.profit >= 0 ? "+" : ""}
-                          {formatCurrency(pos.profit)}
-                        </span>
+                          {actionLoading ? "Signing..." : "Rebalance"}
+                          <Zap className="w-3 h-3 group-hover:text-white transition-colors" />
+                        </button>
                       </div>
                     </div>
                   </div>
