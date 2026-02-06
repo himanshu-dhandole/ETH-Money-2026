@@ -5,7 +5,9 @@ interface INitroliteVault {
     function settleRebalance(
         uint8 riskTier,
         uint256[] calldata indices,
-        uint8[] calldata allocations
+        uint8[] calldata allocations,
+        uint256 nonce,
+        bytes calldata signature
     ) external;
 
     function settleTransfer(

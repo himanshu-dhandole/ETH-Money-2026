@@ -1,0 +1,174 @@
+<svg width="1024" height="600" viewBox="0 0 1024 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="600" fill="#0B0C10"/>
+  
+  <!-- Backend Section Title -->
+  <text x="768" y="25" fill="#ffffff" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Backend</text>
+  
+  <!-- Nitrolite State Channel Box -->
+  <rect x="895" y="90" width="125" height="185" fill="none" stroke="#135bec" stroke-width="2" rx="8"/>
+  <text x="920" y="115" fill="#ffffff" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Nitrolite</text>
+  <text x="905" y="132" fill="#ffffff" font-family="Arial, sans-serif" font-size="11" font-weight="bold">State Channel</text>
+  <text x="905" y="158" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">Store and manage</text>
+  <text x="905" y="172" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">weekly rebalance</text>
+  <text x="905" y="186" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">data on deposit</text>
+  <text x="905" y="210" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">Store the user</text>
+  <text x="905" y="224" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">position data</text>
+  <text x="905" y="238" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">when deposit</text>
+  
+  <!-- Off-chain AI Ellipse -->
+  <ellipse cx="560" cy="115" rx="95" ry="32" fill="none" stroke="#135bec" stroke-width="2" stroke-dasharray="5,5"/>
+  <text x="515" y="122" fill="#ffffff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Off-chain AI</text>
+  
+  <!-- Sector Segregator Intelligence System Box -->
+  <rect x="290" y="30" width="125" height="85" fill="none" stroke="#666666" stroke-width="1" stroke-dasharray="3,3" rx="4"/>
+  <text x="300" y="50" fill="#999999" font-family="Arial, sans-serif" font-size="9">Sector Segregator</text>
+  <text x="300" y="64" fill="#999999" font-family="Arial, sans-serif" font-size="9">Intelligence</text>
+  <text x="300" y="78" fill="#999999" font-family="Arial, sans-serif" font-size="9">System</text>
+  <text x="300" y="100" fill="#999999" font-family="Arial, sans-serif" font-size="9">Monitor User</text>
+  <text x="300" y="112" fill="#999999" font-family="Arial, sans-serif" font-size="9">behaviour</text>
+  
+  <!-- Fetch and Handle Allocation Updates Box -->
+  <rect x="695" y="20" width="160" height="100" fill="none" stroke="#666666" stroke-width="1" rx="4"/>
+  <text x="705" y="40" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">Fetch and Handle</text>
+  <text x="705" y="54" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">Allocation updates</text>
+  <text x="705" y="75" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">Create and manage</text>
+  <text x="705" y="89" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">Nitrolite State</text>
+  <text x="705" y="103" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">Channels</text>
+  <text x="705" y="115" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">Handle rebalances</text>
+  
+  <!-- Connection Lines from AI to Backend -->
+  <line x1="630" y1="105" x2="695" y2="65" stroke="#135bec" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <line x1="650" y1="120" x2="895" y2="185" stroke="#135bec" stroke-width="1.5" stroke-dasharray="3,3"/>
+  
+  <!-- Vaults Section Title -->
+  <text x="555" y="245" fill="#ffffff" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Vaults</text>
+  
+  <!-- Low Risk Vault -->
+  <rect x="390" y="270" width="115" height="85" fill="none" stroke="#22c55e" stroke-width="2" rx="8"/>
+  <text x="410" y="295" fill="#22c55e" font-family="Arial, sans-serif" font-size="11" font-weight="bold">LOW RISK</text>
+  <text x="435" y="320" fill="#22c55e" font-family="Arial, sans-serif" font-size="16" font-weight="bold">10%</text>
+  
+  <!-- Medium Risk Vault -->
+  <rect x="520" y="270" width="115" height="85" fill="none" stroke="#eab308" stroke-width="2" rx="8"/>
+  <text x="535" y="295" fill="#eab308" font-family="Arial, sans-serif" font-size="11" font-weight="bold">MEDIUM RISK</text>
+  <text x="560" y="320" fill="#eab308" font-family="Arial, sans-serif" font-size="16" font-weight="bold">40%</text>
+  
+  <!-- High Risk Vault -->
+  <rect x="650" y="270" width="115" height="85" fill="none" stroke="#ef4444" stroke-width="2" rx="8"/>
+  <text x="670" y="295" fill="#ef4444" font-family="Arial, sans-serif" font-size="11" font-weight="bold">HIGH RISK</text>
+  <text x="690" y="320" fill="#ef4444" font-family="Arial, sans-serif" font-size="16" font-weight="bold">50%</text>
+  
+  <!-- Vault Router -->
+  <rect x="170" y="295" width="135" height="85" fill="none" stroke="#ffffff" stroke-width="2" rx="8"/>
+  <text x="192" y="325" fill="#ffffff" font-family="Arial, sans-serif" font-size="13" font-weight="bold">vault router</text>
+  <text x="220" y="365" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">Deposit</text>
+  
+  <!-- Sender Box -->
+  <rect x="12" y="325" width="75" height="45" fill="none" stroke="#ffffff" stroke-width="1.5" rx="4"/>
+  <text x="30" y="353" fill="#ffffff" font-family="Arial, sans-serif" font-size="11">sender</text>
+  
+  <!-- Soul NFT Ellipse -->
+  <ellipse cx="55" cy="265" rx="48" ry="30" fill="none" stroke="#ef4444" stroke-width="2"/>
+  <text x="18" y="268" fill="#ef4444" font-family="Arial, sans-serif" font-size="9">risk bearing</text>
+  <text x="25" y="282" fill="#ef4444" font-family="Arial, sans-serif" font-size="9">soulNFT</text>
+  
+  <!-- NFT Box -->
+  <rect x="8" y="138" width="55" height="75" fill="none" stroke="#ffffff" stroke-width="2" rx="4"/>
+  <text x="18" y="162" fill="#ffffff" font-family="Arial, sans-serif" font-size="10" font-weight="bold">NFT</text>
+  <text x="13" y="182" fill="#cccccc" font-family="Arial, sans-serif" font-size="7">ERC-721</text>
+  <text x="13" y="192" fill="#cccccc" font-family="Arial, sans-serif" font-size="7">ERC-6551</text>
+  <text x="13" y="202" fill="#cccccc" font-family="Arial, sans-serif" font-size="7">SBT</text>
+  
+  <!-- Risk Allocations Text -->
+  <text x="70" y="168" fill="#cccccc" font-family="Arial, sans-serif" font-size="8">30% -> High</text>
+  <text x="70" y="180" fill="#cccccc" font-family="Arial, sans-serif" font-size="8">         risk</text>
+  <text x="70" y="192" fill="#cccccc" font-family="Arial, sans-serif" font-size="8">40% -> medium</text>
+  <text x="70" y="204" fill="#cccccc" font-family="Arial, sans-serif" font-size="8">         risk</text>
+  <text x="70" y="216" fill="#cccccc" font-family="Arial, sans-serif" font-size="8">30% -> low</text>
+  <text x="70" y="228" fill="#cccccc" font-family="Arial, sans-serif" font-size="8">         risk</text>
+  
+  <!-- APD USDC Deposit Text -->
+  <text x="98" y="303" fill="#cccccc" font-family="Arial, sans-serif" font-size="8">APD USDC</text>
+  <text x="98" y="315" fill="#cccccc" font-family="Arial, sans-serif" font-size="8">Deposit</text>
+  
+  <!-- Get and Text -->
+  <text x="12" y="238" fill="#cccccc" font-family="Arial, sans-serif" font-size="8">Get and</text>
+  
+  <!-- Low Risk Strategies -->
+  <rect x="265" y="445" width="75" height="65" fill="none" stroke="#666666" stroke-width="1" rx="4"/>
+  <text x="277" y="470" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">STABLES</text>
+  <text x="290" y="495" fill="#22c55e" font-family="Arial, sans-serif" font-size="12" font-weight="bold">20%</text>
+  
+  <rect x="345" y="535" width="75" height="65" fill="none" stroke="#666666" stroke-width="1" rx="4"/>
+  <text x="362" y="560" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">Bitcoin</text>
+  <text x="370" y="585" fill="#22c55e" font-family="Arial, sans-serif" font-size="12" font-weight="bold">70%</text>
+  
+  <!-- Medium Risk Strategies -->
+  <rect x="390" y="445" width="80" height="65" fill="none" stroke="#666666" stroke-width="1" rx="4"/>
+  <text x="400" y="470" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">Blue chip</text>
+  <text x="415" y="495" fill="#eab308" font-family="Arial, sans-serif" font-size="12" font-weight="bold">10%</text>
+  
+  <rect x="500" y="445" width="75" height="65" fill="none" stroke="#666666" stroke-width="1" rx="4"/>
+  <text x="522" y="470" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">LIDO</text>
+  <text x="525" y="495" fill="#eab308" font-family="Arial, sans-serif" font-size="12" font-weight="bold">60%</text>
+  
+  <rect x="605" y="445" width="75" height="65" fill="none" stroke="#666666" stroke-width="1" rx="4"/>
+  <text x="622" y="470" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">CURVE</text>
+  <text x="630" y="495" fill="#eab308" font-family="Arial, sans-serif" font-size="12" font-weight="bold">40%</text>
+  
+  <rect x="580" y="535" width="75" height="65" fill="none" stroke="#666666" stroke-width="1" rx="4"/>
+  <text x="602" y="560" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">RETH</text>
+  <text x="605" y="585" fill="#eab308" font-family="Arial, sans-serif" font-size="12" font-weight="bold">30%</text>
+  
+  <!-- High Risk Strategies -->
+  <rect x="770" y="420" width="85" height="70" fill="none" stroke="#666666" stroke-width="1" rx="4"/>
+  <text x="780" y="445" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">Aave pool</text>
+  <text x="800" y="470" fill="#ef4444" font-family="Arial, sans-serif" font-size="12" font-weight="bold">85%</text>
+  
+  <rect x="715" y="495" width="100" height="70" fill="none" stroke="#666666" stroke-width="1" rx="4"/>
+  <text x="722" y="517" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">Leveraged</text>
+  <text x="735" y="532" fill="#cccccc" font-family="Arial, sans-serif" font-size="9">DPPX</text>
+  <text x="750" y="555" fill="#ef4444" font-family="Arial, sans-serif" font-size="12" font-weight="bold">30%</text>
+  
+  <rect x="850" y="460" width="85" height="70" fill="none" stroke="#666666" stroke-width="1" rx="4"/>
+  <text x="862" y="485" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">Aerodome</text>
+  <text x="880" y="510" fill="#ef4444" font-family="Arial, sans-serif" font-size="12" font-weight="bold">30%</text>
+  
+  <!-- Connection Lines from Vaults to Strategies -->
+  <!-- Low Risk Connections -->
+  <line x1="447" y1="355" x2="302" y2="445" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <line x1="447" y1="355" x2="382" y2="535" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="3,3"/>
+  
+  <!-- Medium Risk Connections -->
+  <line x1="577" y1="355" x2="430" y2="445" stroke="#eab308" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <line x1="577" y1="355" x2="537" y2="445" stroke="#eab308" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <line x1="577" y1="355" x2="642" y2="445" stroke="#eab308" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <line x1="577" y1="355" x2="617" y2="535" stroke="#eab308" stroke-width="1.5" stroke-dasharray="3,3"/>
+  
+  <!-- High Risk Connections -->
+  <line x1="707" y1="355" x2="812" y2="420" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <line x1="707" y1="355" x2="765" y2="495" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <line x1="707" y1="355" x2="892" y2="460" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>
+  
+  <!-- Connection Lines from Router to Vaults -->
+  <line x1="305" y1="337" x2="390" y2="312" stroke="#ffffff" stroke-width="2"/>
+  <line x1="305" y1="337" x2="520" y2="312" stroke="#ffffff" stroke-width="2"/>
+  <line x1="305" y1="337" x2="650" y2="312" stroke="#ffffff" stroke-width="2"/>
+  
+  <!-- Connection from Sender to Router -->
+  <line x1="87" y1="347" x2="170" y2="337" stroke="#ffffff" stroke-width="2"/>
+  
+  <!-- Connection from Soul NFT to Router -->
+  <line x1="95" y1="280" x2="170" y2="310" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>
+  
+  <!-- Connection from NFT to Soul NFT -->
+  <line x1="35" y1="213" x2="40" y2="235" stroke="#ffffff" stroke-width="1.5"/>
+  
+  <!-- Settlement on-chain Text -->
+  <text x="835" y="295" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">Settlement</text>
+  <text x="835" y="310" fill="#cccccc" font-family="Arial, sans-serif" font-size="10">on-chain</text>
+  
+  <!-- Connection from Nitrolite to Vaults -->
+  <path d="M 895 275 Q 815 305 765 270" stroke="#135bec" stroke-width="1.5" fill="none" stroke-dasharray="5,5"/>
+</svg>

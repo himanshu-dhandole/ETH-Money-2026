@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../interfaces/IStrategy.sol";
 
 import "../interfaces/INitroliteVault.sol";
@@ -16,9 +18,16 @@ contract BaseVault is
     Ownable,
     ReentrancyGuard,
     NitroliteIntegration,
-    INitroliteVault
+    INitroliteVault,
+    EIP712
 {
     using SafeERC20 for IERC20;
+
+    bytes32 private constant REBALANCE_TYPEHASH =
+        keccak256(
+            "Rebalance(uint8 riskTier,uint256[] indices,uint8[] allocations,uint256 nonce)"
+        );
+    mapping(address => uint256) public nonces;
 
     struct StrategyAllocation {
         address strategy;
@@ -57,7 +66,12 @@ contract BaseVault is
         string memory _name,
         string memory _symbol,
         address _feeRecipient
-    ) ERC4626(_asset) ERC20(_name, _symbol) Ownable(msg.sender) {
+    )
+        ERC4626(_asset)
+        ERC20(_name, _symbol)
+        Ownable(msg.sender)
+        EIP712("AuraVault", "1")
+    {
         if (_feeRecipient == address(0)) revert InvalidAddress();
         feeRecipient = _feeRecipient;
     }
@@ -439,8 +453,30 @@ contract BaseVault is
     function settleRebalance(
         uint8 riskTier,
         uint256[] calldata indices,
-        uint8[] calldata allocations
-    ) external override onlyVerifiedNitroliteOperator {
+        uint8[] calldata allocations,
+        uint256 nonce,
+        bytes calldata signature
+    ) external override {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                REBALANCE_TYPEHASH,
+                riskTier,
+                keccak256(abi.encodePacked(indices)),
+                keccak256(abi.encodePacked(allocations)),
+                nonce
+            )
+        );
+
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = ECDSA.recover(digest, signature);
+
+        require(
+            verifiedNitroliteOperators[signer],
+            "Invalid signature or unauthorized operator"
+        );
+        require(nonces[signer] == nonce, "Invalid nonce");
+        nonces[signer]++;
+
         // Implement rebalance logic for Nitrolite operator
         uint16[] memory allocations16 = new uint16[](allocations.length);
         for (uint256 i = 0; i < allocations.length; i++) {

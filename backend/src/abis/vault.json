@@ -1,0 +1,16 @@
+[
+    "function getAllStrategies() external view returns (tuple(address strategy, uint16 allocationBps, bool active)[])",
+    "function totalAssets() external view returns (uint256)",
+    "function estimatedAPY() external view returns (uint256)",
+    "function verifiedNitroliteOperators(address operator) external view returns (bool)",
+    "function owner() external view returns (address)",
+    "function updateAllocations(uint256[] calldata indices, uint16[] memory allocations) public",
+    "function rebalance() external",
+    "function harvest() external returns (uint256)",
+    "function settleRebalance(uint8 riskTier, uint256[] calldata indices, uint8[] calldata allocations, uint256 nonce, bytes calldata signature) external",
+    "function settleTransfer(address user, uint256 amount, bool isWithdraw) external",
+    "function nonces(address owner) external view returns (uint256)",
+    "event AllocationsUpdated(uint256[] indices, uint16[] allocations)",
+    "event Rebalanced(uint256 timestamp, uint256 totalAssets)",
+    "event Harvested(uint256 yield, uint256 fee, uint256 timestamp)"
+]
