@@ -6,6 +6,7 @@ import { useLocation } from "react-router-dom";
 import { ConnectButton } from "thirdweb/react";
 import { createWallet } from "thirdweb/wallets";
 import { client, arcTestnet } from "@/config/thirdwebConfig";
+import { sepolia } from "thirdweb/chains";
 import { Diamond, Menu, X } from "lucide-react";
 
 const wallets = [
@@ -30,11 +31,10 @@ const NavLink = ({
   <Link
     href={href}
     onClick={onClick}
-    className={`px-4 py-2 text-xs font-medium rounded-full transition-all duration-200 ${
-      active
-        ? "text-white bg-[#135bec]/20 border border-[#135bec]/30 shadow-[0_0_20px_rgba(19,91,236,0.15)]"
-        : "text-white/60 hover:text-white hover:bg-white/10 border border-transparent"
-    }`}
+    className={`px-4 py-2 text-xs font-medium rounded-full transition-all duration-200 ${active
+      ? "text-white bg-[#135bec]/20 border border-[#135bec]/30 shadow-[0_0_20px_rgba(19,91,236,0.15)]"
+      : "text-white/60 hover:text-white hover:bg-white/10 border border-transparent"
+      }`}
   >
     {children}
   </Link>
@@ -102,7 +102,7 @@ export const Navbar = () => {
             <ConnectButton
               client={client}
               wallets={wallets}
-              chain={arcTestnet}
+              chains={[arcTestnet, sepolia]}
               theme="dark"
               connectButton={{
                 label: "Connect",
@@ -115,6 +115,10 @@ export const Navbar = () => {
                    !text-white",
               }}
               detailsButton={{
+                displayBalanceToken: {
+                  [sepolia.id]: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238", // Sepolia USDC
+                  [arcTestnet.id]: "0x3600000000000000000000000000000000000000", // Arc USDC
+                },
                 className:
                   "!flex !items-center !gap-2 !px-4 !py-2.5 !rounded-full !text-xs !font-medium \
                    !bg-white/5 !backdrop-blur-xl \
@@ -167,11 +171,10 @@ export const Navbar = () => {
                     key={item.href}
                     href={item.href}
                     onClick={closeMobileMenu}
-                    className={`px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-                      isActive(item.href)
-                        ? "text-white bg-[#135bec]/20 border border-[#135bec]/30"
-                        : "text-white/70 hover:text-white hover:bg-white/5 border border-transparent"
-                    }`}
+                    className={`px-4 py-3 text-sm font-medium rounded-xl transition-all ${isActive(item.href)
+                      ? "text-white bg-[#135bec]/20 border border-[#135bec]/30"
+                      : "text-white/70 hover:text-white hover:bg-white/5 border border-transparent"
+                      }`}
                   >
                     {item.label}
                   </Link>
@@ -183,7 +186,7 @@ export const Navbar = () => {
                 <ConnectButton
                   client={client}
                   wallets={wallets}
-                  chain={arcTestnet}
+                  chains={[arcTestnet, sepolia]}
                   theme="dark"
                   connectButton={{
                     label: "Connect Wallet",
@@ -196,6 +199,10 @@ export const Navbar = () => {
                        !text-white",
                   }}
                   detailsButton={{
+                    displayBalanceToken: {
+                      [sepolia.id]: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238", // Sepolia USDC
+                      [arcTestnet.id]: "0x3600000000000000000000000000000000000000", // Arc USDC
+                    },
                     className:
                       "!w-full !flex !items-center !justify-center !gap-2 !px-5 !py-3 !rounded-xl !text-sm !font-medium \
                        !bg-white/5 !backdrop-blur-xl \
