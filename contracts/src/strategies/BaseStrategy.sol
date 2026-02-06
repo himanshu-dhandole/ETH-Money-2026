@@ -25,7 +25,7 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
     uint256 public lastHarvest;
     uint256 public totalHarvested;
     uint256 public baseAPY;
-    uint256 public yieldPeriod = 3600;
+    uint256 public yieldPeriod = 360;
     uint256 public lastYieldUpdate;
     uint256 public accumulatedYield;
     uint256 public lastRandomFactor = 100;
@@ -197,7 +197,6 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
         address receiver,
         address owner
     ) public virtual override onlyVault nonReentrant returns (uint256) {
-        _generateYield();
         return super.withdraw(assets, receiver, owner);
     }
 
