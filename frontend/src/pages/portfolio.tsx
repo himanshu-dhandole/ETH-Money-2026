@@ -25,13 +25,6 @@ import { toast } from "sonner";
 import { config } from "@/config/wagmiConfig";
 import VAULT_ROUTER_ABI from "@/abi/VaultRouter.json";
 import BASE_VAULT_ABI from "@/abi/BaseVault.json";
-import {
-  PieChart,
-  Pie as PieOriginal,
-  Cell,
-  Tooltip as RechartsTooltip,
-  Sector,
-} from "recharts";
 
 const VAULT_ROUTER = import.meta.env.VITE_VAULT_ROUTER_ADDRESS as `0x${string}`;
 const ARC_CHAIN_ID = 5042002;
@@ -58,80 +51,7 @@ interface Position {
   strategies: number;
 }
 
-const Pie = PieOriginal as any;
 
-const CustomTooltip = ({ active, payload }: any) => {
-  if (!active || !payload?.[0]) return null;
-
-  const data = payload[0].payload;
-  return (
-    <div className="glass-panel px-4 py-3 rounded-xl border border-white/10 bg-[#0f111a]/95 backdrop-blur-xl shadow-2xl min-w-[180px]">
-      <div className="flex items-center gap-2 mb-2">
-        <div
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: data.color }}
-        />
-        <p className="text-white font-medium text-sm">{data.name}</p>
-      </div>
-      <div className="space-y-1">
-        <div className="flex justify-between items-center gap-4">
-          <span className="text-xs text-gray-400">Value</span>
-          <span className="text-sm font-mono font-bold text-white">
-            {new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: "USD",
-              minimumFractionDigits: 2,
-            }).format(data.value)}
-          </span>
-        </div>
-        <div className="flex justify-between items-center gap-4">
-          <span className="text-xs text-gray-400">Weight</span>
-          <span className="text-xs font-mono text-gray-300">
-            {(data.percent * 100).toFixed(1)}%
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const renderActiveShape = (props: any) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } =
-    props;
-  return (
-    <g>
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius + 10}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-      />
-      <Sector
-        cx={cx}
-        cy={cy}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        innerRadius={outerRadius + 14}
-        outerRadius={outerRadius + 16}
-        fill={fill}
-        fillOpacity={0.4}
-      />
-      <Sector
-        cx={cx}
-        cy={cy}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        innerRadius={innerRadius - 4}
-        outerRadius={innerRadius - 2}
-        fill={fill}
-        fillOpacity={0.8}
-      />
-    </g>
-  );
-};
 
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
@@ -300,9 +220,9 @@ export default function PortfolioPage() {
       const weightedA =
         totalV > 0
           ? (baseData.low.apy * curLow +
-              baseData.med.apy * curMed +
-              baseData.high.apy * curHigh) /
-            totalV
+            baseData.med.apy * curMed +
+            baseData.high.apy * curHigh) /
+          totalV
           : 0;
 
       const depositDate =
@@ -323,7 +243,7 @@ export default function PortfolioPage() {
           profitPercent:
             baseData.low.deposited > 0
               ? ((curLow - baseData.low.deposited) / baseData.low.deposited) *
-                100
+              100
               : 0,
           depositDate,
           icon: Shield,
@@ -346,7 +266,7 @@ export default function PortfolioPage() {
           profitPercent:
             baseData.med.deposited > 0
               ? ((curMed - baseData.med.deposited) / baseData.med.deposited) *
-                100
+              100
               : 0,
           depositDate,
           icon: Zap,
@@ -369,8 +289,8 @@ export default function PortfolioPage() {
           profitPercent:
             baseData.high.deposited > 0
               ? ((curHigh - baseData.high.deposited) /
-                  baseData.high.deposited) *
-                100
+                baseData.high.deposited) *
+              100
               : 0,
           depositDate,
           icon: Flame,
@@ -465,7 +385,7 @@ export default function PortfolioPage() {
             ? p.currentValue / displayData.totalValue
             : 0,
       })),
-    [displayData],
+    [displayData.positions.length],
   );
 
   if (!isConnected) {
@@ -527,11 +447,10 @@ export default function PortfolioPage() {
                   </h2>
                   <div className="flex items-center gap-3 mt-4">
                     <div
-                      className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
-                        displayData.totalProfit >= 0
-                          ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-400"
-                          : "bg-rose-400/10 border-rose-400/20 text-rose-400"
-                      }`}
+                      className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${displayData.totalProfit >= 0
+                        ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-400"
+                        : "bg-rose-400/10 border-rose-400/20 text-rose-400"
+                        }`}
                     >
                       {displayData.totalProfit >= 0 ? (
                         <TrendingUp className="w-3 h-3" />
@@ -573,56 +492,214 @@ export default function PortfolioPage() {
               </div>
             </div>
 
-            {/* Pie Chart Section - Simplified */}
+            {/* Pie Chart Section - CoinDCX Style with Labels */}
             <div className="bg-[#16181D] border border-white/5 rounded-3xl p-6 relative overflow-hidden flex flex-col items-center group transition-colors hover:bg-black/40">
               <h3 className="w-full flex items-center gap-2 text-white font-bold text-sm mb-4">
                 <PieChartIcon className="w-4 h-4 text-[#135bec]" />
                 Risk Allocation
               </h3>
 
-              <div className="h-[250px] w-full relative flex items-center justify-center">
+              <div className="h-[450px] w-full relative flex items-center justify-center overflow-visible">
                 {loading ? (
                   <div className="w-12 h-12 rounded-full border-4 border-[#135bec]/20 border-t-[#135bec] animate-spin" />
                 ) : pieData.length > 0 ? (
-                  <div className="relative">
-                    <PieChart width={240} height={240}>
-                      <Pie
-                        data={pieData}
-                        dataKey="value"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={8}
-                        activeIndex={activeIndex}
-                        activeShape={renderActiveShape}
-                        onMouseEnter={(_: any, index: number) =>
-                          setActiveIndex(index)
-                        }
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={entry.color}
-                            stroke="rgba(0,0,0,0.5)"
-                            strokeWidth={2}
-                          />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip content={<CustomTooltip />} />
-                    </PieChart>
-                    {/* Centered Label */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-white leading-none">
-                          {pieData.length}
-                        </p>
-                        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">
-                          Pos
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  <svg width="100%" height="100%" viewBox="0 0 700 450" className="overflow-visible">
+                    {(() => {
+                      const centerX = 350;
+                      const centerY = 225;
+                      const radius = 110;
+                      const innerRadius = 75;
+                      let currentAngle = -90; // Start from top
+                      
+                      return displayData.positions.map((pos, idx) => {
+                        const percentage = displayData.totalValue > 0
+                          ? (pos.currentValue / displayData.totalValue) * 100
+                          : 0;
+                        const sliceAngle = (percentage / 100) * 360;
+                        const midAngle = currentAngle + sliceAngle / 2;
+                        const startAngle = currentAngle;
+                        const endAngle = currentAngle + sliceAngle;
+                        
+                        const isHovered = activeIndex === idx;
+                        
+                        // Dynamic label positioning based on slice angle
+                        const labelDistance = 200;
+                        const elbowDistance = radius + 35;
+                        
+                        // Calculate if label should be on left or right
+                        const isLeft = midAngle > 90 && midAngle < 270;
+                        const textAlign = isLeft ? 'end' : 'start';
+                        
+                        // Point 1: Edge of donut slice
+                        const p1x = centerX + Math.cos((midAngle * Math.PI) / 180) * (radius + 5);
+                        const p1y = centerY + Math.sin((midAngle * Math.PI) / 180) * (radius + 5);
+                        
+                        // Point 2: Elbow point (diagonal from slice)
+                        const p2x = centerX + Math.cos((midAngle * Math.PI) / 180) * elbowDistance;
+                        const p2y = centerY + Math.sin((midAngle * Math.PI) / 180) * elbowDistance;
+                        
+                        // Point 3: Horizontal line endpoint
+                        const p3x = isLeft 
+                          ? centerX - labelDistance 
+                          : centerX + labelDistance;
+                        const p3y = p2y;
+                        
+                        // Label text position
+                        const labelX = isLeft ? p3x - 15 : p3x + 15;
+                        const labelY = p3y;
+                        
+                        // Create SVG path for donut slice
+                        const startOuterX = centerX + Math.cos((startAngle * Math.PI) / 180) * radius;
+                        const startOuterY = centerY + Math.sin((startAngle * Math.PI) / 180) * radius;
+                        const endOuterX = centerX + Math.cos((endAngle * Math.PI) / 180) * radius;
+                        const endOuterY = centerY + Math.sin((endAngle * Math.PI) / 180) * radius;
+                        const startInnerX = centerX + Math.cos((endAngle * Math.PI) / 180) * innerRadius;
+                        const startInnerY = centerY + Math.sin((endAngle * Math.PI) / 180) * innerRadius;
+                        const endInnerX = centerX + Math.cos((startAngle * Math.PI) / 180) * innerRadius;
+                        const endInnerY = centerY + Math.sin((startAngle * Math.PI) / 180) * innerRadius;
+                        
+                        const largeArc = sliceAngle > 180 ? 1 : 0;
+                        
+                        const pathData = [
+                          `M ${startOuterX} ${startOuterY}`,
+                          `A ${radius} ${radius} 0 ${largeArc} 1 ${endOuterX} ${endOuterY}`,
+                          `L ${startInnerX} ${startInnerY}`,
+                          `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${endInnerX} ${endInnerY}`,
+                          'Z'
+                        ].join(' ');
+                        
+                        const result = (
+                          <g key={`slice-${idx}`}>
+                            {/* Donut slice */}
+                            <path
+                              d={pathData}
+                              fill={pos.color}
+                              stroke="rgba(0,0,0,0.3)"
+                              strokeWidth="2"
+                              className="transition-all duration-300 cursor-pointer"
+                              style={{
+                                filter: isHovered ? 'brightness(1.2)' : 'none',
+                                opacity: isHovered ? 1 : 0.95,
+                              }}
+                              onMouseEnter={() => setActiveIndex(idx)}
+                              onMouseLeave={() => setActiveIndex(-1)}
+                            />
+                            
+                            {/* Only show everything on hover */}
+                            {isHovered && (
+                              <>
+                                {/* Connector lines (L-shaped) */}
+                                <g className="transition-opacity duration-300">
+                                  {/* Line from slice edge to elbow */}
+                                  <line
+                                    x1={p1x}
+                                    y1={p1y}
+                                    x2={p2x}
+                                    y2={p2y}
+                                    stroke={pos.color}
+                                    strokeWidth={2.5}
+                                    className="transition-all duration-300"
+                                  />
+                                  
+                                  {/* Horizontal line to label */}
+                                  <line
+                                    x1={p2x}
+                                    y1={p2y}
+                                    x2={p3x}
+                                    y2={p3y}
+                                    stroke={pos.color}
+                                    strokeWidth={2.5}
+                                    className="transition-all duration-300"
+                                  />
+                                </g>
+                                
+                                {/* Percentage label */}
+                                <text
+                                  x={labelX}
+                                  y={labelY - 40}
+                                  textAnchor={textAlign}
+                                  className="font-bold transition-all duration-300"
+                                  fill={pos.color}
+                                  style={{ 
+                                    fontSize: '28px',
+                                    fontWeight: 'bold'
+                                  }}
+                                >
+                                  {percentage.toFixed(0)}%
+                                </text>
+                                
+                                {/* Vault name */}
+                                <text
+                                  x={labelX}
+                                  y={labelY - 12}
+                                  textAnchor={textAlign}
+                                  className="fill-white font-bold"
+                                  style={{ fontSize: '16px' }}
+                                >
+                                  {pos.vault} Vault
+                                </text>
+                                
+                                {/* Amount */}
+                                <text
+                                  x={labelX}
+                                  y={labelY + 8}
+                                  textAnchor={textAlign}
+                                  className="fill-white font-mono font-bold"
+                                  style={{ fontSize: '14px' }}
+                                >
+                                  {formatCurrency(pos.currentValue)}
+                                </text>
+                                
+                                {/* APY */}
+                                <text
+                                  x={labelX}
+                                  y={labelY + 26}
+                                  textAnchor={textAlign}
+                                  className="fill-gray-400"
+                                  style={{ fontSize: '11px' }}
+                                >
+                                  APY: {pos.apy.toFixed(2)}%
+                                </text>
+                              </>
+                            )}
+                          </g>
+                        );
+                        
+                        currentAngle += sliceAngle;
+                        return result;
+                      });
+                    })()}
+                    
+                    {/* Center circle */}
+                    <circle
+                      cx="350"
+                      cy="225"
+                      r="60"
+                      fill="#16181D"
+                      stroke="rgba(255,255,255,0.1)"
+                      strokeWidth="1"
+                    />
+                    
+                    {/* Center text - Number of vaults */}
+                    <text
+                      x="350"
+                      y="220"
+                      textAnchor="middle"
+                      className="fill-white font-bold"
+                      style={{ fontSize: '32px' }}
+                    >
+                      {displayData.positions.length}
+                    </text>
+                    <text
+                      x="350"
+                      y="240"
+                      textAnchor="middle"
+                      className="fill-gray-500 font-bold uppercase tracking-widest"
+                      style={{ fontSize: '11px' }}
+                    >
+                      VAULTS
+                    </text>
+                  </svg>
                 ) : (
                   <div className="text-center opacity-40">
                     <PieChartIcon className="w-12 h-12 mx-auto mb-2 text-gray-600" />
