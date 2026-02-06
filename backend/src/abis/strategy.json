@@ -1,0 +1,6 @@
+[
+    "function totalAssets() external view returns (uint256)",
+    "function estimatedAPY() external view returns (uint256)",
+    "function baseAPY() external view returns (uint256)",
+    "function harvest() external"
+]

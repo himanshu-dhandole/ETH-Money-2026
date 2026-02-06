@@ -19,7 +19,7 @@ module.exports = {
     NITROLITE_OPERATOR_PRIVATE_KEY: process.env.NITROLITE_OPERATOR_PRIVATE_KEY,
 
     // AI API Configuration
-    AI_API_URL: process.env.AI_API_URL || 'https://api.aura-farm.ai/allocate-pools',
+    AI_API_URL: process.env.AI_API_URL || '',
     AI_API_KEY: process.env.AI_API_KEY || '',
 
     // MongoDB Configuration
