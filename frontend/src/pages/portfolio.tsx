@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import {
   TrendingUp,
   TrendingDown,
@@ -339,23 +339,51 @@ export default function PortfolioPage() {
     }
   };
 
+  const { signMessageAsync } = useSignMessage();
+
   const handleRebalance = async () => {
     if (!address) return;
     setActionLoading(true);
-    const toastId = toast.loading("Rebalancing portfolio...");
+    const toastId = toast.loading("Requesting Rebalance...");
     try {
-      const tx = await writeContract(config, {
-        address: VAULT_ROUTER,
-        abi: VAULT_ROUTER_ABI,
-        functionName: "rebalance",
-        account: address,
-        gas: 5_000_000n,
+      // 1. Create and sign the message
+      // We use vaultId 0 as a default signal to trigger the user rebalance workflow
+      // The backend/keeper will rebalance the user across all their active positions
+      const vaultId = 0;
+      const message = `Rebalance request for vault ${vaultId} at ${address}`;
+
+      const signature = await signMessageAsync({ message });
+
+      // 2. Send request to Nitrolite Service
+      // Assuming backend is running on localhost:3001 for dev, 
+      // in prod this should be an env var
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+      const response = await fetch(`${API_URL}/api/user/rebalance`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userAddress: address,
+          vaultId,
+          signature,
+        }),
       });
-      await waitForTransactionReceipt(config, { hash: tx });
-      toast.success("Rebalance successful!", { id: toastId });
-      fetchPortfolioData();
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(`Rebalance Queued! (Pos: ${data.position})`, { id: toastId });
+        // Optionally fetch status immediately
+        // fetchRebalanceStatus(); 
+      } else {
+        throw new Error(data.error || "Failed to queue rebalance");
+      }
+
     } catch (err: any) {
-      toast.error("Rebalance failed: " + (err.message || "Unknown error"), {
+      console.error("Rebalance error:", err);
+      toast.error(err.message || "Rebalance request canceled", {
         id: toastId,
       });
     } finally {
@@ -510,7 +538,7 @@ export default function PortfolioPage() {
                       const radius = 110;
                       const innerRadius = 75;
                       let currentAngle = -90; // Start from top
-                      
+
                       return displayData.positions.map((pos, idx) => {
                         const percentage = displayData.totalValue > 0
                           ? (pos.currentValue / displayData.totalValue) * 100
@@ -519,35 +547,35 @@ export default function PortfolioPage() {
                         const midAngle = currentAngle + sliceAngle / 2;
                         const startAngle = currentAngle;
                         const endAngle = currentAngle + sliceAngle;
-                        
+
                         const isHovered = activeIndex === idx;
-                        
+
                         // Dynamic label positioning based on slice angle
                         const labelDistance = 200;
                         const elbowDistance = radius + 35;
-                        
+
                         // Calculate if label should be on left or right
                         const isLeft = midAngle > 90 && midAngle < 270;
                         const textAlign = isLeft ? 'end' : 'start';
-                        
+
                         // Point 1: Edge of donut slice
                         const p1x = centerX + Math.cos((midAngle * Math.PI) / 180) * (radius + 5);
                         const p1y = centerY + Math.sin((midAngle * Math.PI) / 180) * (radius + 5);
-                        
+
                         // Point 2: Elbow point (diagonal from slice)
                         const p2x = centerX + Math.cos((midAngle * Math.PI) / 180) * elbowDistance;
                         const p2y = centerY + Math.sin((midAngle * Math.PI) / 180) * elbowDistance;
-                        
+
                         // Point 3: Horizontal line endpoint
-                        const p3x = isLeft 
-                          ? centerX - labelDistance 
+                        const p3x = isLeft
+                          ? centerX - labelDistance
                           : centerX + labelDistance;
                         const p3y = p2y;
-                        
+
                         // Label text position
                         const labelX = isLeft ? p3x - 15 : p3x + 15;
                         const labelY = p3y;
-                        
+
                         // Create SVG path for donut slice
                         const startOuterX = centerX + Math.cos((startAngle * Math.PI) / 180) * radius;
                         const startOuterY = centerY + Math.sin((startAngle * Math.PI) / 180) * radius;
@@ -557,9 +585,9 @@ export default function PortfolioPage() {
                         const startInnerY = centerY + Math.sin((endAngle * Math.PI) / 180) * innerRadius;
                         const endInnerX = centerX + Math.cos((startAngle * Math.PI) / 180) * innerRadius;
                         const endInnerY = centerY + Math.sin((startAngle * Math.PI) / 180) * innerRadius;
-                        
+
                         const largeArc = sliceAngle > 180 ? 1 : 0;
-                        
+
                         const pathData = [
                           `M ${startOuterX} ${startOuterY}`,
                           `A ${radius} ${radius} 0 ${largeArc} 1 ${endOuterX} ${endOuterY}`,
@@ -567,7 +595,7 @@ export default function PortfolioPage() {
                           `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${endInnerX} ${endInnerY}`,
                           'Z'
                         ].join(' ');
-                        
+
                         const result = (
                           <g key={`slice-${idx}`}>
                             {/* Donut slice */}
@@ -584,7 +612,7 @@ export default function PortfolioPage() {
                               onMouseEnter={() => setActiveIndex(idx)}
                               onMouseLeave={() => setActiveIndex(-1)}
                             />
-                            
+
                             {/* Only show everything on hover */}
                             {isHovered && (
                               <>
@@ -600,7 +628,7 @@ export default function PortfolioPage() {
                                     strokeWidth={2.5}
                                     className="transition-all duration-300"
                                   />
-                                  
+
                                   {/* Horizontal line to label */}
                                   <line
                                     x1={p2x}
@@ -612,7 +640,7 @@ export default function PortfolioPage() {
                                     className="transition-all duration-300"
                                   />
                                 </g>
-                                
+
                                 {/* Percentage label */}
                                 <text
                                   x={labelX}
@@ -620,14 +648,14 @@ export default function PortfolioPage() {
                                   textAnchor={textAlign}
                                   className="font-bold transition-all duration-300"
                                   fill={pos.color}
-                                  style={{ 
+                                  style={{
                                     fontSize: '28px',
                                     fontWeight: 'bold'
                                   }}
                                 >
                                   {percentage.toFixed(0)}%
                                 </text>
-                                
+
                                 {/* Vault name */}
                                 <text
                                   x={labelX}
@@ -638,7 +666,7 @@ export default function PortfolioPage() {
                                 >
                                   {pos.vault} Vault
                                 </text>
-                                
+
                                 {/* Amount */}
                                 <text
                                   x={labelX}
@@ -649,7 +677,7 @@ export default function PortfolioPage() {
                                 >
                                   {formatCurrency(pos.currentValue)}
                                 </text>
-                                
+
                                 {/* APY */}
                                 <text
                                   x={labelX}
@@ -664,12 +692,12 @@ export default function PortfolioPage() {
                             )}
                           </g>
                         );
-                        
+
                         currentAngle += sliceAngle;
                         return result;
                       });
                     })()}
-                    
+
                     {/* Center circle */}
                     <circle
                       cx="350"
@@ -679,7 +707,7 @@ export default function PortfolioPage() {
                       stroke="rgba(255,255,255,0.1)"
                       strokeWidth="1"
                     />
-                    
+
                     {/* Center text - Number of vaults */}
                     <text
                       x="350"
