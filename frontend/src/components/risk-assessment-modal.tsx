@@ -28,15 +28,9 @@ const questions: Question[] = [
     id: 1,
     question: "If your investment drops suddenly, what will you do?",
     options: [
-      {
-        label: "Sell immediately to prevent further loss",
-        value: "conservative",
-      },
+      { label: "Sell immediately to prevent further loss", value: "conservative" },
       { label: "Hold and wait for recovery", value: "moderate" },
-      {
-        label: "Invest more because it’s a buying opportunity",
-        value: "aggressive",
-      },
+      { label: "Invest more because it’s a buying opportunity", value: "aggressive" },
     ],
   },
   {
@@ -54,10 +48,7 @@ const questions: Question[] = [
     options: [
       { label: "Income is uncertain, limited savings", value: "conservative" },
       { label: "Income is stable with some savings", value: "moderate" },
-      {
-        label: "Income is stable and I have 6+ months emergency fund",
-        value: "aggressive",
-      },
+      { label: "Income is stable and I have 6+ months emergency fund", value: "aggressive" },
     ],
   },
   {
@@ -89,20 +80,30 @@ export const RiskAssessmentModal = ({
 
   const editableKeys: ("low" | "mid" | "high")[] = ["low", "mid"];
   const autoKey = (["low", "mid", "high"] as const).find(
-    (k) => !editableKeys.includes(k),
+    (k) => !editableKeys.includes(k)
   )!;
 
-  useEffect(() => {
-    if (isOpen) {
-      setChatMessages([
-        {
-          role: "bot",
-          text: "Hi 👋 Let’s understand your risk appetite. Answer a few quick questions.",
-        },
-      ]);
-      setCurrentQuestionIndex(0);
-    }
-  }, [isOpen]);
+useEffect(() => {
+  if (isOpen) {
+    setStep("chat");
+    setIsCalculating(false);
+    setEditMode(false);
+    setAnswerLabels({});
+    setAllocation({ low: 0, mid: 0, high: 0 });
+    setCurrentQuestionIndex(0);
+
+    setChatMessages([
+      {
+        role: "bot",
+        text: "Hi 👋 Let’s understand your risk appetite. Answer a few quick questions.",
+      },
+      {
+        role: "bot",
+        text: questions[0].question,
+      },
+    ]);
+  }
+}, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -141,7 +142,7 @@ export const RiskAssessmentModal = ({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ QA }),
-        },
+        }
       );
 
       const data = await res.json();
@@ -184,12 +185,7 @@ export const RiskAssessmentModal = ({
     <div className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4">
       <div className="relative max-w-4xl w-full glass-panel rounded-3xl p-8">
         <button onClick={onClose} className="absolute top-6 right-6">
-          <X
-            className="text-gray-400"
-            onClick={() => {
-              setEditMode(false);
-            }}
-          />
+          <X className="text-gray-400"  onClick={() => {setEditMode(false)}} />
         </button>
 
         {step === "chat" ? (
@@ -260,36 +256,15 @@ export const RiskAssessmentModal = ({
             </p>
 
             <div className="h-4 w-full rounded-full overflow-hidden flex mb-8 bg-white/5">
-              <div
-                className="bg-green-500"
-                style={{ width: `${allocation.low}%` }}
-              />
-              <div
-                className="bg-yellow-500"
-                style={{ width: `${allocation.mid}%` }}
-              />
-              <div
-                className="bg-red-500"
-                style={{ width: `${allocation.high}%` }}
-              />
+              <div className="bg-green-500" style={{ width: `${allocation.low}%` }} />
+              <div className="bg-yellow-500" style={{ width: `${allocation.mid}%` }} />
+              <div className="bg-red-500" style={{ width: `${allocation.high}%` }} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <RiskCard
-                icon={<Shield className="text-green-500" />}
-                title="Low Risk"
-                value={allocation.low}
-              />
-              <RiskCard
-                icon={<TrendingUp className="text-yellow-500" />}
-                title="Mid Risk"
-                value={allocation.mid}
-              />
-              <RiskCard
-                icon={<Zap className="text-red-500" />}
-                title="High Risk"
-                value={allocation.high}
-              />
+              <RiskCard icon={<Shield className="text-green-500" />} title="Low Risk" value={allocation.low} />
+              <RiskCard icon={<TrendingUp className="text-yellow-500" />} title="Mid Risk" value={allocation.mid} />
+              <RiskCard icon={<Zap className="text-red-500" />} title="High Risk" value={allocation.high} />
             </div>
 
             {!editMode && (

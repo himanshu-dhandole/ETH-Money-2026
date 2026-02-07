@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Optional, Any
 
 class riskScoreSchemaRequest(BaseModel):
     QA: Dict[str, str] 
@@ -39,3 +39,13 @@ class rebalanceFundsResponse(BaseModel):
     baseapicurent: float
     previousbaseapi: float
     total_assets: float
+
+class tradeBehaviorRequest(BaseModel):
+    actionType: int
+    tradeSizePct: float
+    marketChangePct_1h: float
+    marketChangePct_24h: float
+    drawdownPct: float
+    timeSinceDropMin: int
+    tradesLast24h: int
+
