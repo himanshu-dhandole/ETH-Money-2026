@@ -31,10 +31,11 @@ const NavLink = ({
   <Link
     href={href}
     onClick={onClick}
-    className={`px-4 py-2 text-xs font-medium rounded-full transition-all duration-200 ${active
-      ? "text-white bg-[#135bec]/20 border border-[#135bec]/30 shadow-[0_0_20px_rgba(19,91,236,0.15)]"
-      : "text-white/60 hover:text-white hover:bg-white/10 border border-transparent"
-      }`}
+    className={`px-4 py-2 text-xs font-medium rounded-full transition-all duration-200 ${
+      active
+        ? "text-white bg-[#135bec]/20 border border-[#135bec]/30 shadow-[0_0_20px_rgba(19,91,236,0.15)]"
+        : "text-white/60 hover:text-white hover:bg-white/10 border border-transparent"
+    }`}
   >
     {children}
   </Link>
@@ -80,7 +81,7 @@ export const Navbar = () => {
               <Diamond className="w-4 h-4 text-[#135bec]" />
             </div>
             <span className="text-sm font-semibold tracking-tight text-white">
-              AuraVault
+              AuraFarm
             </span>
           </Link>
 
@@ -171,10 +172,11 @@ export const Navbar = () => {
                     key={item.href}
                     href={item.href}
                     onClick={closeMobileMenu}
-                    className={`px-4 py-3 text-sm font-medium rounded-xl transition-all ${isActive(item.href)
-                      ? "text-white bg-[#135bec]/20 border border-[#135bec]/30"
-                      : "text-white/70 hover:text-white hover:bg-white/5 border border-transparent"
-                      }`}
+                    className={`px-4 py-3 text-sm font-medium rounded-xl transition-all ${
+                      isActive(item.href)
+                        ? "text-white bg-[#135bec]/20 border border-[#135bec]/30"
+                        : "text-white/70 hover:text-white hover:bg-white/5 border border-transparent"
+                    }`}
                   >
                     {item.label}
                   </Link>
@@ -200,8 +202,10 @@ export const Navbar = () => {
                   }}
                   detailsButton={{
                     displayBalanceToken: {
-                      [sepolia.id]: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238", // Sepolia USDC
-                      [arcTestnet.id]: "0x3600000000000000000000000000000000000000", // Arc USDC
+                      [sepolia.id]:
+                        "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238", // Sepolia USDC
+                      [arcTestnet.id]:
+                        "0x3600000000000000000000000000000000000000", // Arc USDC
                     },
                     className:
                       "!w-full !flex !items-center !justify-center !gap-2 !px-5 !py-3 !rounded-xl !text-sm !font-medium \
