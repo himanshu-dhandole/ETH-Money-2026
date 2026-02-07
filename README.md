@@ -1,451 +1,332 @@
-# 🌾 Aura Farmer
+# 🌟 Aura Protocol - HackMoney2026
 
-> **DeFi's first personality layer.** A single 2-minute conversational quiz generates a unique, lifetime investment strategy — deployed into self-adjusting ERC-4626 vaults, minted as a composable soulbound NFT, and verified on-chain via EIP-712 signed AI decisions.
+> **Personalized DeFi Yield Aggregation with streamlined UX , AI based: optimizations, allocations, healthchecks **
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)]()
-[![Checkpoint](https://img.shields.io/badge/Hackathon-Checkpoint%201-orange)]()
-[![Contracts](https://img.shields.io/badge/Solidity-ERC%204626%20%7C%20ERC%20721-green)]()
+Aura Farm revolutionizes DeFi by making sophisticated yield strategies accessible to everyone through personalized risk profiles and intelligent automation. Built on Arc testnet with Nitrolite Protocol integration for gas-efficient settlements.
 
----
-
-## Table of Contents
-
-1. [Project Overview](#project-overview)
-2. [The Problem](#the-problem)
-3. [The Solution — How Aura Farmer Works](#the-solution)
-4. [User Journey — End to End](#user-journey)
-5. [Core Features](#core-features)
-   - [Personalized Risk Vaults](#personalized-risk-vaults)
-   - [Soulbound Risk NFT](#soulbound-risk-nft)
-   - [Volume Knob Risk Management](#volume-knob-risk-management)
-   - [Adaptive Learning Engine](#adaptive-learning-engine)
-   - [ZK Privacy Layer](#zk-privacy-layer)
-   - [Emergency Exit Coordination](#emergency-exit-coordination)
-   - [Verifiable On-Chain AI](#verifiable-on-chain-ai)
-6. [Architecture](#architecture)
-   - [System Overview](#system-overview)
-   - [Smart Contract Layer](#smart-contract-layer)
-   - [AI / Off-Chain Layer](#ai--off-chain-layer)
-   - [Data Flow](#data-flow)
-7. [Risk Profile Profiles — By the Numbers](#risk-profiles--by-the-numbers)
-8. [Crash Scenario Walkthrough](#crash-scenario-walkthrough)
-9. [Revenue Model](#revenue-model)
-10. [Tech Stack](#tech-stack)
-11. [Checkpoint Status](#checkpoint-status)
-12. [Design Decisions & Why](#design-decisions--why)
-13. [Roadmap](#roadmap)
-14. [How to Run](#how-to-run)
-15. [License](#license)
+**A UX-first personalized DeFi protocol** powered by soulbound NFTs that encode your unique risk tolerance, enabling truly customized yield strategies without compromising on security or capital efficiency.
 
 ---
 
-## Project Overview
+## 🎯 The Problem
 
-Aura Farmer is an AI-powered DeFi yield protocol that personalizes investment strategy at the individual level. Every user gets a unique risk profile — not a bucket, not a tier, but a *spectrum position* — and the protocol continuously manages their funds to match that profile as market conditions shift.
+Traditional DeFi yield aggregators suffer from critical flaws, as painfully demonstrated by the Luna crash and similar failures:
 
-The core insight: DeFi protocols today treat all users the same. One liquidation threshold. One rebalancing trigger. One strategy. That works for a hedge fund running a single mandate. It fails for the 99% of on-chain users who have wildly different risk tolerances, time horizons, and emotional responses to volatility.
+1. **One-Size-Fits-All Approach** - Everyone gets the same strategy regardless of risk tolerance
+2. **Random Liquidations** - Unexpected market events cause cascading failures and total loss
+3. **Manual Rebalancing** - Users must constantly monitor and adjust positions manually
+4. **Gas-Intensive Operations** - Every rebalance costs significant gas fees
 
-Aura Farmer fixes this by turning risk management into a *personal* experience — and making that personality composable, verifiable, and useful across the entire DeFi ecosystem.
-
----
-
-## The Problem
-
-Current DeFi yield strategies force users into one of three bad options:
-
-**Option A — Do it yourself.** Manually rebalance across protocols. Requires expertise, constant monitoring, and nerve. Most retail users burn out or get liquidated in their first crash.
-
-**Option B — Use a fixed vault.** Deposit into an existing yield aggregator. Get the same allocation, same risk, same crash behavior as every other depositor. No personalization. No adaptation.
-
-**Option C — Pick a risk tier.** Some protocols offer Low / Medium / High. Binary jumps. No in-between. And the "Low" tier still liquidates your position in a 30% drawdown if you're unlucky with timing.
-
-None of these account for *who you are* — your age, your portfolio size, your time horizon, your emotional tolerance for drawdowns, or how you've actually behaved in past crashes.
+**Result:** Catastrophic losses (as seen in LUNA 2022 crash), suboptimal returns, poor user experience, and barriers to entry for non-technical users.
 
 ---
 
-## The Solution
+## 💡 The Solution
 
-Aura Farmer takes a 2-minute conversational quiz — not a form, a real back-and-forth — and uses it to generate a precise, continuous risk score for each user. That score drives:
+Aura Protocol introduces **Personalized DeFi**:
 
-- **Where** your funds are allocated (which protocols, which asset pairs)
-- **How much** sits in high-yield vs. stable positions at any given time
-- **How fast** the protocol rebalances when markets move
-- **When** you get priority in an emergency exit
-- **What** other protocols can learn about you (via your soulbound NFT)
+### 🎨 Soulbound Risk Profiles
+Users mint a **non-transferable NFT** that defines their unique risk tolerance:
+- **Conservative** (Low Risk) - Stable, predictable yields
+- **Balanced** (Medium Risk) - Growth with controlled volatility  
+- **Aggressive** (High Risk) - Maximum returns, higher variance
 
-The result: a 22-year-old with a high risk appetite and a long time horizon might be 80% in aggressive yield farms targeting 15% APY. A 45-year-old saving for a house might be 70% in blue-chip Aave / Lido positions targeting a safe 5%. Same protocol. Completely different strategies. Both automated. Both adaptive.
+### 🤖 AI-Powered Allocation Engine
+Our intelligent backend continuously:
+- Monitors APY performance across 9+ strategies
+- **AI-Powered Health Checks** - Validates strategies via APY monitoring and total asset drop detection
+- **AI Intelligence System** - Validates strategy safety and performance using EIP-712 signed attestations
+- Analyzes historical volatility and Sharpe ratios
+- Dynamically rebalances allocations to optimize risk-adjusted returns
+- Executes via **Nitrolite Protocol** for gas-efficient off-chain settlements
+- **Cross-Chain USDC Deposits** - Accept deposits from any chain via Circle CCTP bridge
+
+### ⚡ Gas-Efficient Architecture
+- **Nitrolite Integration** - Off-chain state management with on-chain settlement
+- **Batch Operations** - Process multiple user rebalances in single transactions
+- **Yield Reserve System** - Realistic yield simulation without minting tokens
+
+### 🌉 Circle CCTP Gateway Integration
+- **Seamless Cross-Chain Deposits** - Built on Arc testnet (Arbitrum Orbit L3) with native Circle CCTP support
+- **Any-Chain USDC Acceptance** - Users can deposit USDC from Ethereum, Base, Optimism, Arbitrum, or any CCTP-enabled chain
+- **Native USDC Experience** - No wrapped tokens or bridges - true USDC everywhere via Circle's Cross-Chain Transfer Protocol
+- **UX Improvement**: Users don't need Arc testnet gas tokens or manual bridging - deposit directly from their preferred chain
+- **Instant Liquidity** - CCTP burns on source chain and mints natively on Arc, ensuring canonical USDC at all times
 
 ---
 
-## User Journey — End to End
+## 🏗️ Architecture
 
-```
-Step 1 — Quiz
-   User opens Aura Farmer and answers a short conversational quiz.
-   Questions adapt based on previous answers (not a static form).
-   Covers: age, portfolio size, time horizon, risk comfort, past behavior.
+![Architecture Diagram](https://cdn.phototourl.com/uploads/2026-02-07-82aba36e-9d8c-4908-9000-6204f2bee0bc.png)
 
-Step 2 — AI Risk Profile Generation
-   Off-chain AI model processes quiz responses.
-   Outputs a continuous risk score (0.0 – 1.0) plus a strategy vector:
-      → allocation percentages across protocol categories
-      → rebalancing thresholds and speed
-      → crash-response rules
-      → emergency exit priority tier
+---
 
-Step 3 — Soulbound NFT Mint
-   Risk profile is hashed and minted as a non-transferable ERC-721 NFT.
-   The NFT is composable — other protocols can call it to read your verified profile.
-   Examples: Aave reads it to offer custom loan terms.
-            A DAO reads it to verify risk-aware eligibility.
-            An insurance protocol reads it to price your premium.
+## 🚀 Key Features
 
-Step 4 — Vault Deployment
-   A personalized ERC-4626 vault is deployed (or assigned) for the user.
-   Funds are routed to the correct protocols based on the strategy vector.
-   User sees a dashboard: current allocation, live APY, risk score, next rebalance trigger.
-
-Step 5 — Continuous Management
-   The rebalancing engine monitors market conditions in real time.
-   Adjusts allocations smoothly — no sudden binary flips.
-   Risk is a volume knob. It turns gradually, not on/off.
-
-Step 6 — Learning & Recalibration
-   The protocol observes user behavior over time:
-      → Did they panic-sell during a dip? Risk tolerance gets auto-lowered.
-      → Did they add more during a crash? Risk tolerance gets nudged up.
-   Profile updates are signed on-chain (EIP-712) for full auditability.
+### 1️⃣ Personalized Risk Management
+```solidity
+// Mint your unique risk profile NFT
+riskNFT.mint(
+    lowPct: 40,    // 40% in low-risk strategies
+    medPct: 40,    // 40% in medium-risk strategies  
+    highPct: 20    // 20% in high-risk strategies
+);
 ```
 
----
+### 2️⃣ Automated Rebalancing
+- **User-Initiated**: Request rebalance anytime via API
+- **Keeper-Driven**: Automated rebalancing every 10 minutes
+- **Harvest-on-Rebalance**: Auto-collects yield during position updates
 
-## Core Features
+### 3️⃣ Nitrolite Integration
+Off-chain state management with cryptographic settlement for rebalancing:
+```javascript
+// Off-chain: Sign allocation update
+const signature = await signer.signTypedData({
+    domain, types, message: {
+        riskTier: 0,
+        indices: [0, 1, 2],
+        allocations: [33, 33, 34],
+        nonce: currentNonce
+    }
+});
 
-### Personalized Risk Vaults
+// On-chain: Settle when profitable
+await vault.settleRebalance(riskTier, indices, allocations, nonce, signature);
+```
 
-Each user gets a dedicated **ERC-4626 vault** — the standard for yield-bearing token vaults on EVM chains. These vaults are not generic. They are parameterized by the user's risk profile at deployment:
+### 4️⃣ Realistic Yield Simulation
+- **YieldReserve Contract** - Pre-funded with real Arc USDC
+- **No Token Minting** - Strategies draw from reserve (for testing)
+- **Transparent Metrics** - Track efficiency and distribution
 
-- **Allocation weights** — How much goes to high-yield, medium-yield, and stable positions
-- **Rebalancing bands** — How far an allocation can drift before the engine corrects it
-- **Max drawdown tolerance** — The deepest drop the vault is configured to absorb before triggering a defensive shift
-
-ERC-4626 was chosen for composability. Any protocol that understands the standard can interact with Aura vaults — deposit, withdraw, check share price — without custom integration.
-
-### Soulbound Risk NFT
-
-Each user's risk profile is minted as a **soulbound (non-transferable) ERC-721 NFT**. This is one of the key innovations in Aura Farmer.
-
-**Why soulbound?** Risk profiles are personal. They shouldn't be tradeable or transferable. A 22-year-old's aggressive profile shouldn't be sellable to a 60-year-old to game loan terms.
-
-**Why on-chain?** Because it makes the profile *composable*. Any DeFi protocol can call your NFT's metadata and act on it:
-
-| Protocol Type | What It Reads | What It Does |
-|---|---|---|
-| Lending (e.g. Aave) | Risk score + history | Offers personalized collateral ratios or loan terms |
-| DAO | Risk profile + behavior | Verifies eligibility for risk-aware governance roles |
-| Insurance | Crash behavior + allocation | Prices your premium based on actual on-chain behavior |
-| Yield Aggregator | Strategy vector | Routes your funds optimally without you re-entering a quiz |
-
-The NFT is updated (not re-minted) as the profile evolves — keeping the same token ID, preserving history.
-
-### Volume Knob Risk Management
-
-Traditional DeFi uses **binary liquidation**: if your collateral drops below a threshold, your position is closed. One bad candle and you're out.
-
-Aura Farmer replaces this with a **continuous rebalancing model** — risk is a volume knob, not a switch.
-
-How it works in practice:
-- When markets drop 5%, the engine might shift 10% of a conservative vault from yield to stablecoins.
-- At a 10% drop, another 15% shifts.
-- At 20%, a conservative vault is now 90% stablecoins — but never fully exited, never liquidated.
-- An aggressive vault barely moves at 5% or 10%. It only begins adjusting at 25%+.
-
-The thresholds and shift amounts are derived from the user's risk score. No two vaults respond to the same crash identically.
-
-### Adaptive Learning Engine
-
-Aura Farmer doesn't just set your risk profile once and forget it. It **learns from your behavior**.
-
-The protocol watches on-chain signals over time:
-
-| User Behavior | Signal | Adaptive Response |
-|---|---|---|
-| Panic-sold during last 20% crash | High emotional volatility | Risk tolerance lowered; more aggressive crash-response |
-| Added capital during a 15% dip | High conviction under pressure | Risk tolerance nudged up; looser rebalancing bands |
-| Withdrew everything during a 5% dip | Very low stress tolerance | Significant risk reduction; earlier defensive shifts |
-| Held through a 30% crash untouched | Extremely high tolerance | Risk tolerance raised; wider bands allowed |
-
-These adjustments are not silent. They are proposed by the AI, signed on-chain via EIP-712, and visible to the user before taking effect. The user can override if needed.
-
-> 🔄 *Adaptive learning is in progress for Checkpoint 2.*
-
-### ZK Privacy Layer
-
-Not every user wants their risk profile to be publicly readable on-chain. Some users are fine with composability. Others don't want competitors, employers, or anyone else to see their exact allocation strategy.
-
-Aura Farmer integrates **zero-knowledge proofs** to allow selective disclosure:
-
-- A user can prove to Aave that their risk score is above a certain threshold — *without revealing the actual score*.
-- A user can prove they have a valid, active Aura profile — *without revealing their wallet or allocation*.
-- Insurance protocols can verify crash behavior — *without seeing the user's full history*.
-
-This is built on top of the soulbound NFT layer. The NFT holds the ground truth; ZK proofs allow selective, verifiable access to it.
-
-> 🔄 *ZK proof integration is in progress for Checkpoint 2.*
-
-### Emergency Exit Coordination
-
-When a protocol hack or black swan event hits, everyone tries to exit at once. Slippage destroys value. The people who get out first, survive. The rest get wrecked.
-
-Aura Farmer solves this with a **priority-based emergency exit queue**:
-
-1. **Conservative profiles exit first** — They have the least tolerance for loss, so they get priority.
-2. **Medium profiles exit second** — Balanced between speed and orderly exit.
-3. **Aggressive profiles exit last** — They have the highest drawdown tolerance and are most likely to ride it out or recover.
-
-This isn't just fair — it's *rational*. An aggressive user's profile literally says they can absorb more loss. A conservative user's profile says they can't. The exit queue is a direct consequence of the risk profiles the users themselves declared.
-
-> 🔄 *Emergency exit priority queue is in progress for Checkpoint 2.*
-
-### Verifiable On-Chain AI
-
-One of the biggest trust problems in DeFi automation: how do you know the AI isn't just doing whatever it wants with your money?
-
-Every decision Aura Farmer's AI makes — every rebalance, every allocation shift, every risk update — is **signed on-chain using EIP-712 typed data signatures**.
-
-This means:
-- The exact decision is recorded (what moved, where, why).
-- The AI's "reasoning" (inputs and outputs) is logged.
-- Anyone can verify that the decision was authorized and matches the user's profile.
-- No black box. Full auditability. On-chain, forever.
+### 5️⃣ AI-Powered Allocations
+- **Dynamic Strategy Weighting** - AI analyzes historical performance data
+- **Volatility-Adjusted Returns** - Optimize for risk-adjusted yield via Sharpe ratios
+- **Adaptive Rebalancing** - Frequency adjusts based on market conditions
+- **Health Monitoring** - Automatic alerts on strategy underperformance
 
 ---
 
-## Architecture
+## 📊 User Experience
 
-### System Overview
-
+### Onboarding Flow
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         USER INTERFACE                          │
-│          Quiz  ·  Dashboard  ·  Allocation View                 │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     AI / OFF-CHAIN LAYER                        │
-│                                                                 │
-│   ┌─────────────┐   ┌──────────────────┐   ┌─────────────────┐  │
-│   │ Quiz Engine │──▶│ Risk Score Model │──▶│ Strategy Vector │  │
-│   └─────────────┘   └──────────────────┘   └────────┬────────┘  │
-│                                                     │            │
-│   ┌─────────────────────────┐   ┌────────────────────┐          │
-│   │ Adaptive Learning Loop  │◀──│ On-chain Behavior  │          │
-│   │ (behavior → recalibrate)│   │ Indexer            │          │
-│   └─────────────────────────┘   └────────────────────┘          │
-└────────────────────────────┬────────────────────────────────────┘
-                             │  (EIP-712 signed decisions)
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     SMART CONTRACT LAYER                        │
-│                                                                 │
-│   ┌────────────────┐   ┌────────────────┐   ┌────────────────┐  │
-│   │ ERC-4626 Vaults│   │ Soulbound NFT  │   │ Rebalancing    │  │
-│   │ (personalized) │   │ (ERC-721)      │   │ Engine         │  │
-│   └───────┬────────┘   └───────┬────────┘   └───────┬────────┘  │
-│           │                    │                    │            │
-│           ▼                    ▼                    ▼            │
-│   ┌────────────────────────────────────────────────────────┐    │
-│   │              EIP-712 Decision Log (on-chain)           │    │
-│   └────────────────────────────────────────────────────────┘    │
-│                                                                 │
-│   ┌─────────────────┐   ┌─────────────────────────────┐        │
-│   │ ZK Proof Layer  │   │ Emergency Exit Priority Queue│        │
-│   │ (in progress)   │   │ (in progress)               │        │
-│   └─────────────────┘   └─────────────────────────────┘        │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                  EXTERNAL DeFi PROTOCOLS                        │
-│         Aave  ·  Lido  ·  Yield Farms  ·  Stablecoins          │
-└─────────────────────────────────────────────────────────────────┘
+1. Connect Wallet (Any Chain!)
+   ↓
+2. Complete Risk Assessment Quiz
+   ↓
+3. Mint Soulbound Risk NFT
+   ↓
+4. Deposit USDC (via Circle CCTP from Ethereum, Base, Optimism, etc.)
+   ↓
+5. Auto-allocation to Vaults
+   ↓
+6. Earn Optimized Yield
 ```
 
-### AI / Off-Chain Layer
+### 🎯 UX Improvements via Circle CCTP
+- **No Manual Bridging** - Deposit directly from your preferred chain
+- **No Wrapped Tokens** - Always native, canonical USDC
+- **No Arc Gas Required** - CCTP handles cross-chain transfer
+- **Instant Settlement** - Burn & mint mechanism ensures fast finality
+- **Familiar Experience** - Use the same USDC you already hold
 
-| Component | Role |
-|---|---|
-| **Quiz Engine** | Adaptive conversational interface. Questions branch based on prior answers. Outputs raw user signals. |
-| **Risk Score Model** | Takes quiz output → produces a continuous risk score (0.0–1.0) and a full strategy vector. |
-| **Strategy Vector** | Defines allocation %, rebalancing bands, crash-response curve, and exit priority for the user. |
-| **Behavior Indexer** | Watches on-chain events (deposits, withdrawals, swaps) and feeds signals to the adaptive loop. |
-| **Adaptive Learning Loop** | Recalibrates risk score based on observed behavior. Proposes updates → signed on-chain. |
+### Dashboard Features
+- **Real-time P&L Tracking** - See current value vs. cost basis
+- **APY Breakdown** - Understand returns by risk tier
+- **Strategy Performance** - Detailed metrics per strategy
+- **One-Click Rebalancing** - Update allocations anytime
+- **Partial Withdrawals** - Withdraw any percentage
 
-### Data Flow
+---
+
+## 📁 Project Structure
 
 ```
-Quiz Input
-    │
-    ▼
-Risk Score (0.0 – 1.0)  +  Strategy Vector
-    │                              │
-    ├──────────────────────────────┤
-    ▼                              ▼
-Soulbound NFT Mint          Vault Parameterization
-    │                              │
-    ▼                              ▼
-Composable Profile          Funds Routed to Protocols
-(readable by Aave, DAOs,        │
- Insurance, etc.)               ▼
-                          Continuous Rebalancing
-                                  │
-                    ┌─────────────┴─────────────┐
-                    ▼                           ▼
-             EIP-712 Log               Behavior Indexed
-                                            │
-                                            ▼
-                                     Adaptive Recalibration
-                                     (loop back to profile update)
+aura-protocol/
+├── contracts/              # Solidity smart contracts
+│   ├── src/
+│   │   ├── vaults/        # ERC4626 vaults (3 tiers)
+│   │   ├── strategies/    # Yield strategies (9 total)
+│   │   ├── RiskNFT.sol    # Soulbound profile NFT
+│   │   ├── VaultRouter.sol # User-facing entry point
+│   │   └── YieldReserve.sol # Yield distribution
+│   └── script/            # Deployment scripts
+│
+├── backend/               # Automation backend
+│   ├── src/
+│   │   ├── keeper.js      # Main orchestrator
+│   │   ├── api.js         # User rebalance API
+│   │   └── services/      # Nitrolite, DB, AI
+│   └── abis/              # Contract ABIs
+│
+└── ai-models/             # AI allocation engine
+    └── app/
+        ├── graph.py       # LangChain agent
+        └── main.py        # FastAPI server
 ```
 
 ---
 
-## Risk Profiles — By the Numbers
+## 🎮 Getting Started
 
-The table below shows example profiles that Aura Farmer might generate. These are not fixed tiers — every user gets a unique position on the spectrum. These are illustrative points.
+### Prerequisites
+```bash
+# System requirements
+Node.js >= 18.0
+Python >= 3.10
+Foundry
+MongoDB
+```
 
-| Profile | Age | Risk Score | High-Yield Allocation | Stable Allocation | Target APY | Rebalance Speed | Crash Response (at -20%) |
-|---|---|---|---|---|---|---|---|
-| Degen | 22 | 0.85 | 80% | 5% | ~15% | Slow (wide bands) | Minimal shift (~5% to stable) |
-| Balanced | 30 | 0.55 | 50% | 25% | ~9% | Medium | Moderate shift (~30% to stable) |
-| Conservative | 45 | 0.25 | 20% | 55% | ~5% | Fast (tight bands) | Aggressive shift (~90% to stable) |
-| Ultra-Safe | 58 | 0.10 | 5% | 80% | ~3% | Instant | Full shift to stablecoins |
+### 1. Deploy Contracts
 
-> **Note:** Risk score is continuous, not categorical. A user with a score of 0.42 gets a proportionally blended strategy — not rounded to the nearest bucket.
+```bash
+cd contracts
 
----
+# Set environment variables
+cp .env.example .env
+# Edit .env with your private key
 
-## Crash Scenario Walkthrough
+# Deploy YieldReserve (one-time)
+forge script script/DeployYieldReserve.s.sol:DeployYieldReserve \
+    --broadcast --rpc-url $RPC_URL
 
-**Scenario: Market drops 20% over 6 hours.**
+# Deploy main contracts
+forge script script/Deploy.s.sol:Deploy \
+    --broadcast --rpc-url $RPC_URL
+```
 
-### What happens to the Degen (risk score 0.85):
-- Rebalancing engine detects the drawdown.
-- Strategy vector says: tolerate up to 30% before shifting.
-- 20% is within tolerance → **no action taken**.
-- Vault stays 80% in high-yield farms. Absorbs the dip. Positions for recovery.
+**Key Addresses (Arc Testnet):**
+- Native USDC: `0x3600000000000000000000000000000000000000`
+- YieldReserve: (save after deployment)
+- VaultRouter: (save after deployment)
 
-### What happens to the Conservative (risk score 0.25):
-- Rebalancing engine detects the drawdown.
-- Strategy vector says: begin shifting at 10%.
-- At 10% drop → 30% of high-yield moved to stablecoins.
-- At 15% drop → another 25% moved.
-- At 20% drop → vault is now **90% stablecoins**. Capital preserved.
-- No liquidation event. No single "death blow." Gradual, continuous de-risking.
+**Circle CCTP Integration:**
+- Get testnet USDC from [Circle Faucet](https://faucet.circle.com)
+- Bridge from any chain using [Circle CCTP](https://www.circle.com/en/cross-chain-transfer-protocol)
+- Arc testnet automatically receives native USDC - no wrapped tokens!
 
-### What happens to the Balanced (risk score 0.55):
-- Starts shifting at 12%.
-- At 20% → vault is roughly 60% stablecoins, 40% still in yield positions.
-- Strikes a middle ground: some capital preserved, some still positioned for a bounce.
+### 2. Start AI Engine
 
-### Key point:
-All three users were in the **same protocol**. Same market crash. Completely different outcomes — because their vaults were configured to match their actual risk tolerance from day one.
+```bash
+cd ai-models
 
----
+# Install dependencies
+pip install -r requirements.txt
 
-## Revenue Model
+# Set Groq API key
+cp .env.example .env
+echo 'GROQ_API_KEY="your-key-here"' >> .env
 
-Aura Farmer generates revenue through **vault performance fees**:
+# Start server
+python -m uvicorn app.main:app --reload --port 8000
+```
 
-- A percentage fee is taken on *gains* generated by each vault — not on deposits or withdrawals.
-- Fee rate is tiered by vault performance: higher returns → slightly higher fee percentage.
-- Fees are taken in the vault's native asset and can be directed to a protocol treasury or distributed to governance token holders.
+### 3. Start Backend Keeper
 
-This aligns incentives: Aura Farmer only earns when users earn. A vault that underperforms pays nothing.
+```bash
+cd backend
 
-> 🔄 *Full performance fee revenue flow is in progress for Checkpoint 2.*
+# Install dependencies
+npm install
 
----
+# Configure environment
+cp .env.example .env
+# Add contract addresses from deployment
 
-## Tech Stack
+# Start MongoDB
+mongod --dbpath ./data
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| Smart Contracts | Solidity | ERC-4626 vaults, ERC-721 soulbound NFTs, rebalancing engine |
-| On-chain Verification | EIP-712 Typed Data | Signing and logging every AI decision on-chain |
-| AI / ML | Risk scoring model, adaptive learning | Generating and updating user risk profiles |
-| ZK Proofs | *(Integration in progress)* | Privacy-preserving selective disclosure of profile data |
-| Behavior Indexing | On-chain event indexer | Tracking user actions for adaptive learning |
-| Frontend | Conversational quiz interface, allocation dashboard | User-facing experience |
+# Run keeper
+npm start
+```
 
----
+### 4. Authorize Keeper
 
-## Checkpoint Status
+```bash
+cd contracts
 
-This is **Checkpoint 1** of the hackathon. The table below shows what is live and what is actively in progress for Checkpoint 2.
-
-| Feature | Status | Notes |
-|---|---|---|
-| Conversational quiz & risk profile generation | ✅ Live | Adaptive branching quiz, outputs risk score + strategy vector |
-| ERC-4626 vault contracts | ✅ Live | Parameterized per-user vaults, standard-compliant |
-| Soulbound risk NFT minting | ✅ Live | ERC-721, non-transferable, composable metadata |
-| Basic rebalancing logic | ✅ Live | Threshold-based rebalancing driven by strategy vector |
-| EIP-712 on-chain decision signing | ✅ Live | Every rebalance and update is signed and logged |
-| ZK proof integration | 🔄 In Progress | Selective disclosure layer on top of soulbound NFT |
-| Adaptive learning (behavior tracking & recalibration) | 🔄 In Progress | On-chain behavior indexing + risk score updates |
-| Emergency exit priority queue | 🔄 In Progress | Conservative-first exit ordering |
-| Cross-protocol composability hooks | 🔄 In Progress | Aave custom terms, DAO eligibility, insurance pricing |
-| Full performance fee revenue flow | 🔄 In Progress | Fee calculation, collection, and distribution |
+# Authorize backend as Nitrolite operator
+forge script script/AddOperator.s.sol:AddOperator \
+    --broadcast --rpc-url $RPC_URL
+```
 
 ---
 
-## Design Decisions & Why
+## 🔄 How It Works
 
-### Why ERC-4626 for vaults?
-ERC-4626 is the emerging standard for yield-bearing vaults on EVM. It means any other protocol can interact with Aura vaults without custom code. Composability out of the box.
+### Deposit Flow (with Circle CCTP)
+1. User initiates deposit from **any CCTP-enabled chain** (Ethereum, Base, Optimism, Arbitrum, etc.)
+2. Circle CCTP burns USDC on source chain and mints native USDC on Arc testnet
+3. VaultRouter reads user's Risk NFT: `40/40/20` allocation
+4. Automatically distributes:
+   - 400 USDC → Low Risk Vault
+   - 400 USDC → Medium Risk Vault
+   - 200 USDC → High Risk Vault
+5. Each vault allocates to 3 strategies per allocation BPS
 
-### Why soulbound NFTs instead of just on-chain data?
-A soulbound NFT is a *token*. Other protocols already know how to check token ownership and read token metadata. Putting the risk profile in an NFT makes it plug-and-play for the entire ecosystem — no new interfaces needed.
+**UX Win**: User never needs to manually bridge or acquire Arc gas tokens!
 
-### Why a quiz instead of a wallet analysis?
-Wallet analysis can estimate behavior, but it can't capture *intent*. A user might have held through a crash because they forgot about their position — not because they're risk-tolerant. The quiz captures what the user *wants*, not just what they've done. Adaptive learning then layers in what they actually *do* over time.
+### Rebalancing Flow
+1. **AI Analysis** (every 10 min):
+   - Fetch current APYs from all 9 strategies
+   - Calculate 7-day volatility and Sharpe ratios
+   - Generate optimal allocations per tier
 
-### Why EIP-712 for AI decisions?
-Off-chain AI is powerful but unverifiable by default. EIP-712 typed data signatures let us log every AI decision on-chain in a structured, human-readable, and cryptographically verifiable way. No black box. Users and auditors can trace every move.
+2. **Nitrolite Settlement**:
+   - Sign allocation update off-chain (EIP-712)
+   - Queue for batch settlement
+   - Settle on-chain when profitable
 
-### Why continuous rebalancing instead of liquidation thresholds?
-Liquidation is brutal and binary. One bad candle at the wrong time wipes you out. Continuous rebalancing spreads the risk management across time — it's smoother, less gassable in aggregate, and preserves more capital in drawdowns. It's the difference between a volume knob and a power switch.
+3. **Vault Execution**:
+   - Withdraw from all strategies
+   - **Harvest yields first** (critical!)
+   - Reallocate per new allocations
+   - Emit rebalance event
 
-### Why conservative users exit first in emergencies?
-Because their profile literally says they can't tolerate loss. An aggressive user's strategy is built to absorb drawdowns. A conservative user's isn't. Giving conservative users priority in an emergency exit is the logical extension of their own declared risk tolerance.
+### User-Initiated Rebalancing
+```bash
+# User requests rebalance via API
+curl -X POST http://localhost:3001/api/user/rebalance \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userAddress": "0x...",
+    "vaultId": 1,
+    "signature": "0x..."
+  }'
+
+# Keeper processes hourly in batches
+await vault.batchRebalanceUsers([user1, user2, ...]);
+```
 
 ---
 
-## Roadmap
+## 🎯 Why This Matters
 
-### Checkpoint 1 (Current)
-- Core quiz → risk profile → vault → NFT flow is live
-- Basic rebalancing and EIP-712 decision logging working
-- End-to-end demo ready
+### For Users
+✅ **Personalization** - Your risk, your returns  
+✅ **Automation** - Set and forget  
+✅ **Transparency** - See exactly where your funds go  
+✅ **Flexibility** - Update profile anytime  
 
-### Checkpoint 2 (Upcoming)
-- ZK proof layer for privacy-preserving composability
-- Adaptive learning loop: behavior indexing + automatic recalibration
-- Emergency exit priority queue
-- Full cross-protocol composability hooks (Aave, DAOs, insurance)
-- Performance fee revenue flow
+### For DeFi
+✅ **Onboarding** - Lower barrier to entry  
+✅ **Retention** - Better UX keeps users engaged  
+✅ **Capital Efficiency** - Smart rebalancing maximizes TVL utilization  
+✅ **Innovation** - Proves personalization is possible on-chain  
 
-### Post-Hackathon (Vision)
-- Multi-chain deployment
-- Governance token for protocol decisions
-- Third-party protocol SDK for integrating with Aura profiles
-- Mobile-first experience
-- Expanded adaptive learning signals (gas behavior, cross-protocol activity)
-
+### For Developers
+✅ **Composability** - ERC4626 vaults integrate anywhere  
+✅ **Extensibility** - Easy to add new strategies  
+✅ **Best Practices** - Production-ready code patterns  
+✅ **Open Source** - Learn and build on top  
 
 ---
 
-## License
+<div align="center">
 
-MIT
+*Making DeFi Personal, One NFT at a Time*
+
+</div>
