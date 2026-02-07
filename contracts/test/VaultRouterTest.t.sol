@@ -208,7 +208,7 @@ contract VaultRouterTest is Test {
         // Change Profile to Aggressive: 0/20/80
         riskNFT.setProfile(user, 0, 20, 80);
 
-        router.rebalance();
+        router.rebalance(user);
 
         // Check new distribution
         (uint256 lShares, uint256 mShares, uint256 hShares) = router

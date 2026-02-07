@@ -74,6 +74,7 @@ contract VaultRouter is Ownable, ReentrancyGuard {
         uint256 highVaultYield,
         uint256 totalYield
     );
+    event BatchRebalance(address[] users);
 
     error NoProfile();
     error ZeroAmount();
@@ -244,10 +245,10 @@ contract VaultRouter is Ownable, ReentrancyGuard {
      * @dev Automatically harvests from all vaults before rebalancing to maximize user value
      * @dev Resets cost basis to prevent permanent negative PnL
      */
-    function rebalance() external nonReentrant {
-        if (!riskNFT.hasProfile(msg.sender)) revert NoProfile();
+    function rebalance(address user) public nonReentrant {
+        if (!riskNFT.hasProfile(user)) revert NoProfile();
 
-        UserPosition memory oldPos = userPositions[msg.sender];
+        UserPosition memory oldPos = userPositions[user];
         if (
             oldPos.lowShares == 0 &&
             oldPos.medShares == 0 &&
@@ -264,9 +265,7 @@ contract VaultRouter is Ownable, ReentrancyGuard {
         if (totalAssets == 0) revert ZeroAmount();
 
         // STEP 3: Deposit according to new risk profile
-        IRiskNFT.RiskProfile memory newProfile = riskNFT.getRiskProfile(
-            msg.sender
-        );
+        IRiskNFT.RiskProfile memory newProfile = riskNFT.getRiskProfile(user);
         (
             uint256 newLowShares,
             uint256 newMedShares,
@@ -274,14 +273,14 @@ contract VaultRouter is Ownable, ReentrancyGuard {
         ) = _depositByProfile(totalAssets, newProfile);
 
         // STEP 4: Update user position and reset cost basis
-        UserPosition storage pos = userPositions[msg.sender];
+        UserPosition storage pos = userPositions[user];
         pos.lowShares = newLowShares;
         pos.medShares = newMedShares;
         pos.highShares = newHighShares;
         pos.totalDeposited = totalAssets; // Reset cost basis
         pos.depositTimestamp = block.timestamp;
 
-        emit Rebalanced(msg.sender, block.timestamp, totalHarvested);
+        emit Rebalanced(user, block.timestamp, totalHarvested);
     }
 
     /**
@@ -371,15 +370,12 @@ contract VaultRouter is Ownable, ReentrancyGuard {
         try lowRiskVault.harvest() returns (uint256 h) {
             lowHarvest = h;
         } catch {}
-
         try medRiskVault.harvest() returns (uint256 h) {
             medHarvest = h;
         } catch {}
-
         try highRiskVault.harvest() returns (uint256 h) {
             highHarvest = h;
         } catch {}
-
         totalHarvested = lowHarvest + medHarvest + highHarvest;
 
         if (totalHarvested > 0) {
@@ -540,5 +536,12 @@ contract VaultRouter is Ownable, ReentrancyGuard {
             medRiskVault.estimatedAPY(),
             highRiskVault.estimatedAPY()
         );
+    }
+
+    function batchRebalance(address[] calldata users) external {
+        for (uint256 i = 0; i < users.length; i++) {
+            rebalance(users[i]);
+        }
+        emit BatchRebalance(users);
     }
 }
