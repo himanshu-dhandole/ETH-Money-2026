@@ -188,7 +188,7 @@ abstract contract BaseStrategy is ERC4626, Ownable, ReentrancyGuard {
         uint256 assets,
         address receiver
     ) public virtual override onlyVault nonReentrant returns (uint256) {
-        _generateYield();
+        // _generateYield();
         return super.deposit(assets, receiver);
     }
 
