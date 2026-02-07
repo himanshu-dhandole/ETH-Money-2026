@@ -10,6 +10,7 @@ const nitroliteService = require('./services/nitroliteService');
 const { getAIAllocations } = require('./services/aiService');
 const { adjustAllocationsTo100 } = require('./utils/allocations');
 const VAULT_ABI = require('./abis/vault.json');
+const ROUTER_ABI = require('./abis/router.json');
 const STRATEGY_ABI = require('./abis/strategy.json');
 
 // API Server for user-initiated rebalances
@@ -31,6 +32,9 @@ class NitroliteKeeperService {
         this.lowRiskVault = new ethers.Contract(config.LOW_RISK_VAULT_ADDRESS, VAULT_ABI, this.wallet);
         this.mediumRiskVault = new ethers.Contract(config.MEDIUM_RISK_VAULT_ADDRESS, VAULT_ABI, this.wallet);
         this.highRiskVault = new ethers.Contract(config.HIGH_RISK_VAULT_ADDRESS, VAULT_ABI, this.wallet);
+
+        // Initialize Router
+        this.vaultRouter = new ethers.Contract(config.AURA_VAULT_ADDRESS, ROUTER_ABI, this.wallet);
 
         // Strategy contract cache
         this.strategyContracts = new Map();
@@ -412,62 +416,46 @@ class NitroliteKeeperService {
         logger.info(`👥 USER REBALANCE CYCLE STARTED [Queue: ${userRebalanceQueue.length} requests]`);
 
         try {
-            // Group requests by vault tier
-            const requestsByTier = {
-                0: [], // Low Risk
-                1: [], // Medium Risk
-                2: []  // High Risk
-            };
+            // Get unique users to rebalance
+            const uniqueUsers = [...new Set(userRebalanceQueue.map(req => req.user))];
 
-            // Copy queue and clear it immediately to avoid duplicates
-            const requestsToProcess = [...userRebalanceQueue];
+            if (uniqueUsers.length === 0) return;
+
+            // Clear queue immediately after grabbing users
             userRebalanceQueue.length = 0;
 
-            // Group by tier
-            requestsToProcess.forEach(request => {
-                requestsByTier[request.vaultId].push(request.user);
-            });
+            logger.info(`   Rebalancing ${uniqueUsers.length} unique user(s) in batch via Router...`);
 
-            // Process each tier
-            for (let tier = 0; tier < 3; tier++) {
-                const users = requestsByTier[tier];
-                if (users.length === 0) continue;
+            try {
+                // Call batchRebalance on VaultRouter
+                // This will call rebalance(user) for each user, which handles withdrawal/deposit based on current profile
 
-                logger.info(`\n━━━ TIER ${tier}: Processing ${users.length} user rebalance(s) ━━━`);
+                // Estimate gas roughly: 200k base + 300k per user (conservative)
+                const estimatedGas = 200000n + (300000n * BigInt(uniqueUsers.length));
 
-                try {
-                    const vault = this.getVaultForTier(tier);
+                const tx = await this.vaultRouter.batchRebalance(uniqueUsers, {
+                    gasLimit: estimatedGas > 30000000n ? 30000000n : estimatedGas
+                });
 
-                    logger.info(`   Rebalancing ${users.length} users in batch...`);
+                logger.info(`   🔄 Batch Rebalance TX sent: ${tx.hash}`);
+                const receipt = await tx.wait();
+                logger.info(`   ✅ Batch rebalance confirmed in block ${receipt.blockNumber}`);
 
-                    // Call batchRebalanceUsers for all users in this tier
-                    // This uses the gas-efficient batch architecture
-                    const tx = await vault.batchRebalanceUsers(users, {
-                        gasLimit: config.GAS_LIMIT_REBALANCE * Math.ceil(users.length / 5) // Dynamic gas limit estimate
-                    });
+                this.userRebalanceCount += uniqueUsers.length;
 
-                    logger.info(`   🔄 Batch TX sent: ${tx.hash}`);
-                    const receipt = await tx.wait();
-                    logger.info(`   ✅ Batch rebalance confirmed in block ${receipt.blockNumber}`);
-
-                    this.userRebalanceCount += users.length;
-
-                } catch (tierError) {
-                    logger.error(`   ❌ Error processing tier ${tier} batch:`, tierError);
-                    // In a production system, you might want to re-queue these or try individual fallbacks
-                }
+            } catch (txError) {
+                logger.error(`   ❌ Error processing batch rebalance:`, txError);
+                // Optionally re-queue users here if critical
             }
 
             this.lastUserRebalanceTime = Date.now();
             this.lastExecutionTimes.userRebalance = Date.now();
 
-            logger.info(`✅ USER REBALANCE CYCLE COMPLETED [Total processed: ${requestsToProcess.length}]`);
-            logger.info(`📊 Total user rebalances: ${this.userRebalanceCount}`);
+            logger.info(`✅ USER REBALANCE CYCLE COMPLETED [Total requests: ${uniqueUsers.length}]`);
+            logger.info(`📊 Total user rebalances processed: ${this.userRebalanceCount}`);
 
         } catch (error) {
             logger.error('❌ USER REBALANCE CYCLE FAILED:', error);
-            // Re-add failed requests back to queue (optional)
-            // userRebalanceQueue.push(...requestsToProcess);
         }
     }
 

@@ -52,6 +52,8 @@ function verifyRebalanceSignature(userAddress, vaultId, signature) {
  */
 app.post('/api/user/rebalance', async (req, res) => {
     try {
+
+        console.log('Rebalance request received:', req.body);
         const { userAddress, vaultId, signature } = req.body;
 
         // Validation
