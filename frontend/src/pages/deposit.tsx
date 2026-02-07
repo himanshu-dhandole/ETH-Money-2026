@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
+  getChainId,
+  getBalance,
   readContract,
   waitForTransactionReceipt,
   writeContract,
@@ -167,11 +169,10 @@ const TransactionModal = ({
 
                   {/* Subtext with smooth expand animation */}
                   <div
-                    className={`grid transition-all duration-300 ease-in-out ${
-                      (isActive && step.subtext) || isErrorState
-                        ? "grid-rows-[1fr] opacity-100 mt-2"
-                        : "grid-rows-[0fr] opacity-0"
-                    }`}
+                    className={`grid transition-all duration-300 ease-in-out ${(isActive && step.subtext) || isErrorState
+                      ? "grid-rows-[1fr] opacity-100 mt-2"
+                      : "grid-rows-[0fr] opacity-0"
+                      }`}
                   >
                     <div className="overflow-hidden">
                       <p
@@ -237,7 +238,7 @@ const formatNumber = (val: string | number, decimals = 2) => {
 -------------------------------------------------- */
 
 export default function Deposit() {
-  const { address } = useAccount();
+  const { address, status } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const { signTypedDataAsync } = useSignTypedData();
@@ -306,16 +307,16 @@ export default function Deposit() {
           functionName: "getUserPosition",
           args: [address],
         })) as [
-          bigint,
-          bigint,
-          bigint,
-          bigint,
-          bigint,
-          bigint,
-          bigint,
-          bigint,
-          bigint,
-        ];
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+          ];
         [, , , , , , totalValue, totalDeposited] = position;
       } else {
         // Use public client to fetch Arc data if on Sepolia
@@ -331,16 +332,16 @@ export default function Deposit() {
             functionName: "getUserPosition",
             args: [address],
           })) as [
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-          ];
+              bigint,
+              bigint,
+              bigint,
+              bigint,
+              bigint,
+              bigint,
+              bigint,
+              bigint,
+              bigint,
+            ];
           [, , , , , , totalValue, totalDeposited] = position;
         } catch (e) {
           console.error("Failed to fetch vault data via public client", e);
@@ -397,10 +398,11 @@ export default function Deposit() {
     setLoading(true);
 
     try {
-      if (chainId !== 11155111) {
+      if (getChainId(config) !== 11155111) {
         await switchChain({ chainId: 11155111 });
-        // Small delay to allow chain switch to register
-        await new Promise((r) => setTimeout(r, 1000));
+        while (getChainId(config) !== 11155111) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
       }
 
       const amount = parseUnits(amountInput, 6);
@@ -413,6 +415,7 @@ export default function Deposit() {
         abi: VIRTUAL_USDC_ABI,
         functionName: "allowance",
         args: [address, gateway.walletAddress],
+        chainId: 11155111,
       })) as bigint;
 
       if (allowance < amount) {
@@ -421,9 +424,10 @@ export default function Deposit() {
           abi: VIRTUAL_USDC_ABI,
           functionName: "approve",
           args: [gateway.walletAddress, amount],
+          chainId: 11155111,
         });
         setCurrentTxHash(tx);
-        await waitForTransactionReceipt(config, { hash: tx });
+        await waitForTransactionReceipt(config, { hash: tx, chainId: 11155111 });
       }
       updateStepStatus("approve", "success");
 
@@ -436,12 +440,14 @@ export default function Deposit() {
         abi: GATEWAY_WALLET_ABI,
         functionName: "deposit",
         args: [gateway.usdcAddress, amount],
+        chainId: 11155111,
       });
       setCurrentTxHash(tx);
 
       await waitForTransactionReceipt(config, {
         hash: tx,
         timeout: 60_000, // 60 second timeout
+        chainId: 11155111,
       });
       updateStepStatus("deposit", "success");
 
@@ -449,11 +455,11 @@ export default function Deposit() {
       updateStepStatus(
         "index",
         "loading",
-        "Circle Gateway is indexing (approx 45s)...",
+        "Waiting for Sepolia finality (approx 90s)...",
       );
 
-      // Wait for Circle Gateway to index the deposit - increased to 45 seconds to prevent indexing issues
-      await new Promise((resolve) => setTimeout(resolve, 45000)); // 45 second delay
+      // Wait for Circle Gateway to index the deposit (Sepolia requires finality ~65 blocks)
+      await new Promise((resolve) => setTimeout(resolve, 90000));
       updateStepStatus("index", "success");
 
       toast.loading("Creating cross-chain transfer intent...");
@@ -538,6 +544,9 @@ export default function Deposit() {
       });
       updateStepStatus("sign", "success");
 
+      /* ---------- API Polling ---------- */
+      updateStepStatus("mint", "loading", "Submitting to Gateway & Minting...");
+
       /* ---------- API ---------- */
       updateStepStatus("mint", "loading", "Submitting to Gateway & Minting...");
 
@@ -576,6 +585,16 @@ export default function Deposit() {
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
+      // Check Arc Gas Balance
+      const arcBalance = await getBalance(config, {
+        address: address!,
+        chainId: 5042002,
+      });
+
+      if (arcBalance.value === 0n) {
+        throw new Error("Insufficient Arc ETH (Gas) to pay for Minting. Please get gas from faucet.");
+      }
+
       const arcGateway = getGatewayConfig(5042002);
       if (!arcGateway) throw new Error("Arc Gateway config not found");
 
@@ -601,7 +620,7 @@ export default function Deposit() {
         chainId: 5042002, // Explicitly specify Arc chain
       });
 
-      await waitForTransactionReceipt(config, { hash: mintTx });
+      await waitForTransactionReceipt(config, { hash: mintTx, chainId: 5042002 });
       updateStepStatus("mint", "success");
 
       toast.success(`Bridge complete! Minted ${formatUnits(amount, 6)} USDC`);
@@ -629,7 +648,7 @@ export default function Deposit() {
           args: [VAULT, amount],
           chainId: 5042002,
         });
-        await waitForTransactionReceipt(config, { hash: approveTx });
+        await waitForTransactionReceipt(config, { hash: approveTx, chainId: 5042002 });
       }
 
       // Deposit
@@ -640,7 +659,7 @@ export default function Deposit() {
         args: [amount],
         chainId: 5042002,
       });
-      await waitForTransactionReceipt(config, { hash: depositTx });
+      await waitForTransactionReceipt(config, { hash: depositTx, chainId: 5042002 });
       updateStepStatus("vault", "success");
 
       toast.success(
@@ -695,6 +714,12 @@ export default function Deposit() {
     setLoading(true);
 
     try {
+      // Ensure we are on Arc Testnet
+      if (chainId !== 5042002) {
+        await switchChain({ chainId: 5042002 });
+        // rapid switch might need a small delay or retries, but strictly speaking await should work
+      }
+
       const amount = parseUnits(amountInput, 6);
 
       updateStepStatus("approve", "loading");
@@ -703,6 +728,7 @@ export default function Deposit() {
         abi: VIRTUAL_USDC_ABI,
         functionName: "allowance",
         args: [address, VAULT],
+        chainId: 5042002, // Explicitly specify chain
       })) as bigint;
 
       if (allowance < amount) {
@@ -711,9 +737,10 @@ export default function Deposit() {
           abi: VIRTUAL_USDC_ABI,
           functionName: "approve",
           args: [VAULT, amount],
+          chainId: 5042002, // Explicitly specify chain
         });
         setCurrentTxHash(approveTx);
-        await waitForTransactionReceipt(config, { hash: approveTx });
+        await waitForTransactionReceipt(config, { hash: approveTx, chainId: 5042002 });
       }
       updateStepStatus("approve", "success");
 
@@ -723,9 +750,10 @@ export default function Deposit() {
         abi: VAULT_ROUTER_ABI,
         functionName: "deposit",
         args: [amount],
+        chainId: 5042002, // Explicitly specify chain
       });
       setCurrentTxHash(tx);
-      await waitForTransactionReceipt(config, { hash: tx });
+      await waitForTransactionReceipt(config, { hash: tx, chainId: 5042002 });
       updateStepStatus("deposit", "success");
 
       toast.success(`Deposited ${formatNumber(amountInput)} vUSDC`);
@@ -747,7 +775,13 @@ export default function Deposit() {
     } finally {
       setLoading(false);
     }
-  }, [address, amountInput, fetchUserData]);
+  }, [
+    address,
+    amountInput,
+    fetchUserData,
+    chainId,
+    switchChain,
+  ]);
 
   // Withdraw from Vault
   const handleWithdraw = useCallback(async () => {
@@ -761,6 +795,10 @@ export default function Deposit() {
     setLoading(true);
 
     try {
+      if (chainId !== 5042002) {
+        await switchChain({ chainId: 5042002 });
+      }
+
       const inputAmount = parseUnits(amountInput, 6);
       const totalValue = parseUnits(userState.userValue, 6);
 
@@ -773,6 +811,7 @@ export default function Deposit() {
           abi: VAULT_ROUTER_ABI,
           functionName: "withdrawAll",
           gas: 5_000_000n,
+          chainId: 5042002,
         });
       } else {
         const percentageBps = (inputAmount * 10000n) / totalValue;
@@ -782,10 +821,11 @@ export default function Deposit() {
           functionName: "withdrawPartial",
           args: [percentageBps],
           gas: 5_000_000n,
+          chainId: 5042002,
         });
       }
       setCurrentTxHash(tx);
-      await waitForTransactionReceipt(config, { hash: tx });
+      await waitForTransactionReceipt(config, { hash: tx, chainId: 5042002 });
       updateStepStatus("withdraw", "success");
 
       toast.success(`Withdrew ${formatNumber(amountInput)} vUSDC`);
@@ -807,7 +847,14 @@ export default function Deposit() {
     } finally {
       setLoading(false);
     }
-  }, [address, amountInput, userState.userValue, fetchUserData]);
+  }, [
+    address,
+    amountInput,
+    userState.userValue,
+    fetchUserData,
+    chainId,
+    switchChain,
+  ]);
 
   // Withdraw from Vault AND Bridge to Sepolia
   const handleWithdrawAndBridge = useCallback(async () => {
@@ -828,9 +875,11 @@ export default function Deposit() {
     setLoading(true);
 
     try {
-      if (chainId !== 5042002) {
+      if (getChainId(config) !== 5042002) {
         await switchChain({ chainId: 5042002 });
-        await new Promise((r) => setTimeout(r, 1000));
+        while (getChainId(config) !== 5042002) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
       }
       const amount = parseUnits(amountInput, 6);
 
@@ -847,6 +896,7 @@ export default function Deposit() {
           abi: VAULT_ROUTER_ABI,
           functionName: "withdrawAll",
           gas: 5_000_000n,
+          chainId: 5042002,
         });
       } else {
         const percentageBps = (amount * 10000n) / totalValue;
@@ -857,9 +907,10 @@ export default function Deposit() {
           functionName: "withdrawPartial",
           args: [bps],
           gas: 5_000_000n,
+          chainId: 5042002,
         });
       }
-      await waitForTransactionReceipt(config, { hash: vaultTx });
+      await waitForTransactionReceipt(config, { hash: vaultTx, chainId: 5042002 });
       updateStepStatus("withdraw", "success");
 
       if (!gateway) throw new Error("Gateway config not found");
@@ -871,6 +922,7 @@ export default function Deposit() {
         abi: VIRTUAL_USDC_ABI,
         functionName: "allowance",
         args: [address, gateway.walletAddress],
+        chainId: 5042002,
       })) as bigint;
 
       if (allowance < amount) {
@@ -879,8 +931,9 @@ export default function Deposit() {
           abi: VIRTUAL_USDC_ABI,
           functionName: "approve",
           args: [gateway.walletAddress, amount],
+          chainId: 5042002,
         });
-        await waitForTransactionReceipt(config, { hash: tx });
+        await waitForTransactionReceipt(config, { hash: tx, chainId: 5042002 });
       }
       updateStepStatus("approve", "success");
 
@@ -892,21 +945,25 @@ export default function Deposit() {
         abi: GATEWAY_WALLET_ABI,
         functionName: "deposit",
         args: [gateway.usdcAddress, amount],
+        chainId: 5042002,
       });
       setCurrentTxHash(tx);
 
       await waitForTransactionReceipt(config, {
         hash: tx,
         timeout: 60_000,
+        chainId: 5042002,
       });
       updateStepStatus("deposit", "success");
 
+      /* ---------- Wait for Indexing ---------- */
       updateStepStatus(
         "index",
         "loading",
-        "Circle Gateway is indexing (approx 45s)...",
+        "Circle Gateway is indexing (approx 10s)...",
       );
-      await new Promise((resolve) => setTimeout(resolve, 45000));
+      // Arc is fast, indexing happens quickly
+      await new Promise((resolve) => setTimeout(resolve, 10000));
       updateStepStatus("index", "success");
 
       toast.loading("Creating cross-chain transfer intent...");
@@ -1016,9 +1073,21 @@ export default function Deposit() {
 
       /* ---------- Mint on Destination Chain (Sepolia) ---------- */
 
-      if ((chainId as number) !== 11155111) {
+      if (getChainId(config) !== 11155111) {
         await switchChain({ chainId: 11155111 });
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        while (getChainId(config) !== 11155111) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+
+      // Check Sepolia Gas Balance
+      const sepoliaBalance = await getBalance(config, {
+        address: address!,
+        chainId: 11155111,
+      });
+
+      if (sepoliaBalance.value === 0n) {
+        throw new Error("Insufficient Sepolia ETH to pay for Minting. Please get ETH from a faucet.");
       }
 
       // Gateway Minter ABI (same as above)
@@ -1043,7 +1112,7 @@ export default function Deposit() {
         chainId: 11155111,
       });
 
-      await waitForTransactionReceipt(config, { hash: mintTx });
+      await waitForTransactionReceipt(config, { hash: mintTx, chainId: 11155111 });
       updateStepStatus("mint", "success");
 
       toast.success(
@@ -1135,7 +1204,7 @@ export default function Deposit() {
     }
   };
 
-  if (!address) {
+  if (status === "disconnected" || (!address && status !== "reconnecting" && status !== "connecting")) {
     return (
       <DefaultLayout>
         <div className="min-h-screen bg-[#0B0C10] flex items-center justify-center">
@@ -1150,6 +1219,17 @@ export default function Deposit() {
               Connect your wallet to deposit & withdraw
             </p>
           </div>
+        </div>
+      </DefaultLayout>
+    );
+  }
+
+  // If we are connecting/reconnecting, show a simple loader to avoid null address errors
+  if (!address) {
+    return (
+      <DefaultLayout>
+        <div className="min-h-screen bg-[#0B0C10] flex items-center justify-center">
+          <div className="animate-pulse text-white">Connecting wallet...</div>
         </div>
       </DefaultLayout>
     );
@@ -1322,21 +1402,19 @@ export default function Deposit() {
               <div className="flex gap-2 p-1 bg-white/5 rounded-lg mb-2">
                 <button
                   onClick={() => handleSwitchNetwork("arc")}
-                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${
-                    selectedNetwork === "arc"
-                      ? "bg-[#135bec] text-white shadow-lg"
-                      : "text-gray-400 hover:text-white"
-                  }`}
+                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${selectedNetwork === "arc"
+                    ? "bg-[#135bec] text-white shadow-lg"
+                    : "text-gray-400 hover:text-white"
+                    }`}
                 >
                   Arc Testnet
                 </button>
                 <button
                   onClick={() => handleSwitchNetwork("sepolia")}
-                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${
-                    selectedNetwork === "sepolia"
-                      ? "bg-[#135bec] text-white shadow-lg"
-                      : "text-gray-400 hover:text-white"
-                  }`}
+                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${selectedNetwork === "sepolia"
+                    ? "bg-[#135bec] text-white shadow-lg"
+                    : "text-gray-400 hover:text-white"
+                    }`}
                 >
                   Sepolia
                 </button>
@@ -1405,11 +1483,10 @@ export default function Deposit() {
                 disabled={
                   loading || !amountInput || parseFloat(amountInput) <= 0
                 }
-                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${
-                  activeTab === "deposit"
-                    ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
-                    : "bg-white text-black hover:bg-gray-200"
-                }`}
+                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${activeTab === "deposit"
+                  ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
+                  : "bg-white text-black hover:bg-gray-200"
+                  }`}
               >
                 {activeTab === "deposit" ? (
                   <Lock className="w-5 h-5" />
