@@ -1189,6 +1189,7 @@ export default function Deposit() {
     }
   }, [address, fetchUserData]);
 
+  /*
   const handleHarvest = async () => {
     if (!address) return;
     setLoading(true);
@@ -1210,6 +1211,7 @@ export default function Deposit() {
       setLoading(false);
     }
   };
+  */
 
   const handleRebalance = async () => {
     if (!address) return;

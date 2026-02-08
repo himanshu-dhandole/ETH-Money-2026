@@ -15,11 +15,7 @@ import {
 } from "lucide-react";
 import DefaultLayout from "@/layouts/default";
 import { Link } from "react-router-dom";
-import {
-  readContract,
-  writeContract,
-  waitForTransactionReceipt,
-} from "@wagmi/core";
+import { readContract } from "@wagmi/core";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
 import { config } from "@/config/wagmiConfig";
