@@ -324,6 +324,41 @@ await vault.batchRebalanceUsers([user1, user2, ...]);
 ✅ **Open Source** - Learn and build on top  
 
 ---
+## 📜 Deployed Contracts (ARC Testnet)
+
+All core Aura Protocol smart contracts are **live and fully deployed** on the **ARC Testnet**.  
+Reviewers can verify every transaction directly via the ARC Explorer.
+
+### 🔐 Core Protocol Contracts
+- **Risk NFT (Soulbound Profile)**  
+  `0x062AE9bF265b7a0FF8be70Bd89B282d2a600B656`
+
+- **Strategy Factory**  
+  `0x858ffd59974237faBD10EC52F9c43B217dc1cCfc`
+
+- **Yield Reserve**  
+  `0xF3c6C6Ee7014466E5980E77FFFF34f94eaC00b58`
+
+- **Vault Router (Main Entry Point)**  
+  `0x93F7c33f1C93210CCCf3b69289EE813571114b47`
+
+### 🏦 ERC4626 Vaults (Risk Tiers)
+- **Low Risk Vault**  
+  `0x160317Db387Fa31a45480dA76B6FD5Bf5Ef4e65f`
+
+- **Medium Risk Vault**  
+  `0x7380f32390AEeBB288C944d593A97C1Fde831C1A`
+
+- **High Risk Vault**  
+  `0x502B124a5bE0F6Afcca70D9De446E1E3E3842F7E`
+
+### 🔍 ARC Explorer
+👉 https://explorer.arc.network
+
+---
+
+All contracts are deployed on **ARC Testnet**.  
+Reviewers can paste any address above into the explorer to verify transactions, contract code, vault interactions, Nitrolite settlements, and Circle CCTP cross-chain USDC flows.
 
 <div align="center">
 
