@@ -51,8 +51,6 @@ interface Position {
   strategies: number;
 }
 
-
-
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
   const [loading, setLoading] = useState(true);
@@ -220,9 +218,9 @@ export default function PortfolioPage() {
       const weightedA =
         totalV > 0
           ? (baseData.low.apy * curLow +
-            baseData.med.apy * curMed +
-            baseData.high.apy * curHigh) /
-          totalV
+              baseData.med.apy * curMed +
+              baseData.high.apy * curHigh) /
+            totalV
           : 0;
 
       const depositDate =
@@ -243,7 +241,7 @@ export default function PortfolioPage() {
           profitPercent:
             baseData.low.deposited > 0
               ? ((curLow - baseData.low.deposited) / baseData.low.deposited) *
-              100
+                100
               : 0,
           depositDate,
           icon: Shield,
@@ -266,7 +264,7 @@ export default function PortfolioPage() {
           profitPercent:
             baseData.med.deposited > 0
               ? ((curMed - baseData.med.deposited) / baseData.med.deposited) *
-              100
+                100
               : 0,
           depositDate,
           icon: Zap,
@@ -289,8 +287,8 @@ export default function PortfolioPage() {
           profitPercent:
             baseData.high.deposited > 0
               ? ((curHigh - baseData.high.deposited) /
-                baseData.high.deposited) *
-              100
+                  baseData.high.deposited) *
+                100
               : 0,
           depositDate,
           icon: Flame,
@@ -318,20 +316,47 @@ export default function PortfolioPage() {
   const handleHarvest = async () => {
     if (!address) return;
     setActionLoading(true);
-    const toastId = toast.loading("Harvesting yield...");
+    const toastId = toast.loading("Harvest Rebalance...");
     try {
-      const tx = await writeContract(config, {
-        address: VAULT_ROUTER,
-        abi: VAULT_ROUTER_ABI,
-        functionName: "harvestAll",
-        account: address,
-        gas: 5_000_000n,
+      // 1. Create and sign the message
+      // We use vaultId 0 as a default signal to trigger the user rebalance workflow
+      // The backend/keeper will rebalance the user across all their active positions
+      const vaultId = 0;
+      const message = `Harvest request for vault ${vaultId} at ${address}`;
+
+      const signature = await signMessageAsync({ message });
+
+      // 2. Send request to Nitrolite Service
+      // Assuming backend is running on localhost:3001 for dev,
+      // in prod this should be an env var
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+      const response = await fetch(`${API_URL}/api/user/rebalance`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userAddress: address,
+          vaultId,
+          signature,
+        }),
       });
-      await waitForTransactionReceipt(config, { hash: tx });
-      toast.success("Harvested successfully!", { id: toastId });
-      fetchPortfolioData();
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(`Harvest Queued! (Pos: ${data.position})`, {
+          id: toastId,
+        });
+        // Optionally fetch status immediately
+        // fetchRebalanceStatus();
+      } else {
+        throw new Error(data.error || "Failed to queue harvest");
+      }
     } catch (err: any) {
-      toast.error("Harvest failed: " + (err.message || "Unknown error"), {
+      console.error("Harvest error:", err);
+      toast.error(err.message || "Harvest request canceled", {
         id: toastId,
       });
     } finally {
@@ -355,7 +380,7 @@ export default function PortfolioPage() {
       const signature = await signMessageAsync({ message });
 
       // 2. Send request to Nitrolite Service
-      // Assuming backend is running on localhost:3001 for dev, 
+      // Assuming backend is running on localhost:3001 for dev,
       // in prod this should be an env var
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -374,13 +399,14 @@ export default function PortfolioPage() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success(`Rebalance Queued! (Pos: ${data.position})`, { id: toastId });
+        toast.success(`Rebalance Queued! (Pos: ${data.position})`, {
+          id: toastId,
+        });
         // Optionally fetch status immediately
-        // fetchRebalanceStatus(); 
+        // fetchRebalanceStatus();
       } else {
         throw new Error(data.error || "Failed to queue rebalance");
       }
-
     } catch (err: any) {
       console.error("Rebalance error:", err);
       toast.error(err.message || "Rebalance request canceled", {
@@ -475,10 +501,11 @@ export default function PortfolioPage() {
                   </h2>
                   <div className="flex items-center gap-3 mt-4">
                     <div
-                      className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${displayData.totalProfit >= 0
-                        ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-400"
-                        : "bg-rose-400/10 border-rose-400/20 text-rose-400"
-                        }`}
+                      className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
+                        displayData.totalProfit >= 0
+                          ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-400"
+                          : "bg-rose-400/10 border-rose-400/20 text-rose-400"
+                      }`}
                     >
                       {displayData.totalProfit >= 0 ? (
                         <TrendingUp className="w-3 h-3" />
@@ -531,7 +558,12 @@ export default function PortfolioPage() {
                 {loading ? (
                   <div className="w-12 h-12 rounded-full border-4 border-[#135bec]/20 border-t-[#135bec] animate-spin" />
                 ) : pieData.length > 0 ? (
-                  <svg width="100%" height="100%" viewBox="0 0 700 450" className="overflow-visible">
+                  <svg
+                    width="100%"
+                    height="100%"
+                    viewBox="0 0 700 450"
+                    className="overflow-visible"
+                  >
                     {(() => {
                       const centerX = 350;
                       const centerY = 225;
@@ -540,9 +572,10 @@ export default function PortfolioPage() {
                       let currentAngle = -90; // Start from top
 
                       return displayData.positions.map((pos, idx) => {
-                        const percentage = displayData.totalValue > 0
-                          ? (pos.currentValue / displayData.totalValue) * 100
-                          : 0;
+                        const percentage =
+                          displayData.totalValue > 0
+                            ? (pos.currentValue / displayData.totalValue) * 100
+                            : 0;
                         const sliceAngle = (percentage / 100) * 360;
                         const midAngle = currentAngle + sliceAngle / 2;
                         const startAngle = currentAngle;
@@ -556,15 +589,23 @@ export default function PortfolioPage() {
 
                         // Calculate if label should be on left or right
                         const isLeft = midAngle > 90 && midAngle < 270;
-                        const textAlign = isLeft ? 'end' : 'start';
+                        const textAlign = isLeft ? "end" : "start";
 
                         // Point 1: Edge of donut slice
-                        const p1x = centerX + Math.cos((midAngle * Math.PI) / 180) * (radius + 5);
-                        const p1y = centerY + Math.sin((midAngle * Math.PI) / 180) * (radius + 5);
+                        const p1x =
+                          centerX +
+                          Math.cos((midAngle * Math.PI) / 180) * (radius + 5);
+                        const p1y =
+                          centerY +
+                          Math.sin((midAngle * Math.PI) / 180) * (radius + 5);
 
                         // Point 2: Elbow point (diagonal from slice)
-                        const p2x = centerX + Math.cos((midAngle * Math.PI) / 180) * elbowDistance;
-                        const p2y = centerY + Math.sin((midAngle * Math.PI) / 180) * elbowDistance;
+                        const p2x =
+                          centerX +
+                          Math.cos((midAngle * Math.PI) / 180) * elbowDistance;
+                        const p2y =
+                          centerY +
+                          Math.sin((midAngle * Math.PI) / 180) * elbowDistance;
 
                         // Point 3: Horizontal line endpoint
                         const p3x = isLeft
@@ -577,14 +618,30 @@ export default function PortfolioPage() {
                         const labelY = p3y;
 
                         // Create SVG path for donut slice
-                        const startOuterX = centerX + Math.cos((startAngle * Math.PI) / 180) * radius;
-                        const startOuterY = centerY + Math.sin((startAngle * Math.PI) / 180) * radius;
-                        const endOuterX = centerX + Math.cos((endAngle * Math.PI) / 180) * radius;
-                        const endOuterY = centerY + Math.sin((endAngle * Math.PI) / 180) * radius;
-                        const startInnerX = centerX + Math.cos((endAngle * Math.PI) / 180) * innerRadius;
-                        const startInnerY = centerY + Math.sin((endAngle * Math.PI) / 180) * innerRadius;
-                        const endInnerX = centerX + Math.cos((startAngle * Math.PI) / 180) * innerRadius;
-                        const endInnerY = centerY + Math.sin((startAngle * Math.PI) / 180) * innerRadius;
+                        const startOuterX =
+                          centerX +
+                          Math.cos((startAngle * Math.PI) / 180) * radius;
+                        const startOuterY =
+                          centerY +
+                          Math.sin((startAngle * Math.PI) / 180) * radius;
+                        const endOuterX =
+                          centerX +
+                          Math.cos((endAngle * Math.PI) / 180) * radius;
+                        const endOuterY =
+                          centerY +
+                          Math.sin((endAngle * Math.PI) / 180) * radius;
+                        const startInnerX =
+                          centerX +
+                          Math.cos((endAngle * Math.PI) / 180) * innerRadius;
+                        const startInnerY =
+                          centerY +
+                          Math.sin((endAngle * Math.PI) / 180) * innerRadius;
+                        const endInnerX =
+                          centerX +
+                          Math.cos((startAngle * Math.PI) / 180) * innerRadius;
+                        const endInnerY =
+                          centerY +
+                          Math.sin((startAngle * Math.PI) / 180) * innerRadius;
 
                         const largeArc = sliceAngle > 180 ? 1 : 0;
 
@@ -593,8 +650,8 @@ export default function PortfolioPage() {
                           `A ${radius} ${radius} 0 ${largeArc} 1 ${endOuterX} ${endOuterY}`,
                           `L ${startInnerX} ${startInnerY}`,
                           `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${endInnerX} ${endInnerY}`,
-                          'Z'
-                        ].join(' ');
+                          "Z",
+                        ].join(" ");
 
                         const result = (
                           <g key={`slice-${idx}`}>
@@ -606,7 +663,7 @@ export default function PortfolioPage() {
                               strokeWidth="2"
                               className="transition-all duration-300 cursor-pointer"
                               style={{
-                                filter: isHovered ? 'brightness(1.2)' : 'none',
+                                filter: isHovered ? "brightness(1.2)" : "none",
                                 opacity: isHovered ? 1 : 0.95,
                               }}
                               onMouseEnter={() => setActiveIndex(idx)}
@@ -649,8 +706,8 @@ export default function PortfolioPage() {
                                   className="font-bold transition-all duration-300"
                                   fill={pos.color}
                                   style={{
-                                    fontSize: '28px',
-                                    fontWeight: 'bold'
+                                    fontSize: "28px",
+                                    fontWeight: "bold",
                                   }}
                                 >
                                   {percentage.toFixed(0)}%
@@ -662,7 +719,7 @@ export default function PortfolioPage() {
                                   y={labelY - 12}
                                   textAnchor={textAlign}
                                   className="fill-white font-bold"
-                                  style={{ fontSize: '16px' }}
+                                  style={{ fontSize: "16px" }}
                                 >
                                   {pos.vault} Vault
                                 </text>
@@ -673,7 +730,7 @@ export default function PortfolioPage() {
                                   y={labelY + 8}
                                   textAnchor={textAlign}
                                   className="fill-white font-mono font-bold"
-                                  style={{ fontSize: '14px' }}
+                                  style={{ fontSize: "14px" }}
                                 >
                                   {formatCurrency(pos.currentValue)}
                                 </text>
@@ -684,7 +741,7 @@ export default function PortfolioPage() {
                                   y={labelY + 26}
                                   textAnchor={textAlign}
                                   className="fill-gray-400"
-                                  style={{ fontSize: '11px' }}
+                                  style={{ fontSize: "11px" }}
                                 >
                                   APY: {pos.apy.toFixed(2)}%
                                 </text>
@@ -714,7 +771,7 @@ export default function PortfolioPage() {
                       y="220"
                       textAnchor="middle"
                       className="fill-white font-bold"
-                      style={{ fontSize: '32px' }}
+                      style={{ fontSize: "32px" }}
                     >
                       {displayData.positions.length}
                     </text>
@@ -723,7 +780,7 @@ export default function PortfolioPage() {
                       y="240"
                       textAnchor="middle"
                       className="fill-gray-500 font-bold uppercase tracking-widest"
-                      style={{ fontSize: '11px' }}
+                      style={{ fontSize: "11px" }}
                     >
                       VAULTS
                     </text>

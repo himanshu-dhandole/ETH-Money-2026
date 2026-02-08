@@ -169,10 +169,11 @@ const TransactionModal = ({
 
                   {/* Subtext with smooth expand animation */}
                   <div
-                    className={`grid transition-all duration-300 ease-in-out ${(isActive && step.subtext) || isErrorState
-                      ? "grid-rows-[1fr] opacity-100 mt-2"
-                      : "grid-rows-[0fr] opacity-0"
-                      }`}
+                    className={`grid transition-all duration-300 ease-in-out ${
+                      (isActive && step.subtext) || isErrorState
+                        ? "grid-rows-[1fr] opacity-100 mt-2"
+                        : "grid-rows-[0fr] opacity-0"
+                    }`}
                   >
                     <div className="overflow-hidden">
                       <p
@@ -307,16 +308,16 @@ export default function Deposit() {
           functionName: "getUserPosition",
           args: [address],
         })) as [
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-            bigint,
-          ];
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint,
+        ];
         [, , , , , , totalValue, totalDeposited] = position;
       } else {
         // Use public client to fetch Arc data if on Sepolia
@@ -332,16 +333,16 @@ export default function Deposit() {
             functionName: "getUserPosition",
             args: [address],
           })) as [
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-            ];
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+            bigint,
+          ];
           [, , , , , , totalValue, totalDeposited] = position;
         } catch (e) {
           console.error("Failed to fetch vault data via public client", e);
@@ -427,7 +428,10 @@ export default function Deposit() {
           chainId: 11155111,
         });
         setCurrentTxHash(tx);
-        await waitForTransactionReceipt(config, { hash: tx, chainId: 11155111 });
+        await waitForTransactionReceipt(config, {
+          hash: tx,
+          chainId: 11155111,
+        });
       }
       updateStepStatus("approve", "success");
 
@@ -592,7 +596,9 @@ export default function Deposit() {
       });
 
       if (arcBalance.value === 0n) {
-        throw new Error("Insufficient Arc ETH (Gas) to pay for Minting. Please get gas from faucet.");
+        throw new Error(
+          "Insufficient Arc ETH (Gas) to pay for Minting. Please get gas from faucet.",
+        );
       }
 
       const arcGateway = getGatewayConfig(5042002);
@@ -620,7 +626,10 @@ export default function Deposit() {
         chainId: 5042002, // Explicitly specify Arc chain
       });
 
-      await waitForTransactionReceipt(config, { hash: mintTx, chainId: 5042002 });
+      await waitForTransactionReceipt(config, {
+        hash: mintTx,
+        chainId: 5042002,
+      });
       updateStepStatus("mint", "success");
 
       toast.success(`Bridge complete! Minted ${formatUnits(amount, 6)} USDC`);
@@ -634,7 +643,9 @@ export default function Deposit() {
       // Deduct 2 USDC fee for gateway
       const fee = parseUnits("2", 6);
       if (amount <= fee) {
-        throw new Error("Deposit amount must be greater than 2 USDC to cover gateway fees");
+        throw new Error(
+          "Deposit amount must be greater than 2 USDC to cover gateway fees",
+        );
       }
       const depositAmount = amount - fee;
 
@@ -655,7 +666,10 @@ export default function Deposit() {
           args: [VAULT, depositAmount],
           chainId: 5042002,
         });
-        await waitForTransactionReceipt(config, { hash: approveTx, chainId: 5042002 });
+        await waitForTransactionReceipt(config, {
+          hash: approveTx,
+          chainId: 5042002,
+        });
       }
 
       // Deposit
@@ -666,7 +680,10 @@ export default function Deposit() {
         args: [depositAmount],
         chainId: 5042002,
       });
-      await waitForTransactionReceipt(config, { hash: depositTx, chainId: 5042002 });
+      await waitForTransactionReceipt(config, {
+        hash: depositTx,
+        chainId: 5042002,
+      });
       updateStepStatus("vault", "success");
 
       toast.success(
@@ -747,7 +764,10 @@ export default function Deposit() {
           chainId: 5042002, // Explicitly specify chain
         });
         setCurrentTxHash(approveTx);
-        await waitForTransactionReceipt(config, { hash: approveTx, chainId: 5042002 });
+        await waitForTransactionReceipt(config, {
+          hash: approveTx,
+          chainId: 5042002,
+        });
       }
       updateStepStatus("approve", "success");
 
@@ -782,13 +802,7 @@ export default function Deposit() {
     } finally {
       setLoading(false);
     }
-  }, [
-    address,
-    amountInput,
-    fetchUserData,
-    chainId,
-    switchChain,
-  ]);
+  }, [address, amountInput, fetchUserData, chainId, switchChain]);
 
   // Withdraw from Vault
   const handleWithdraw = useCallback(async () => {
@@ -917,7 +931,10 @@ export default function Deposit() {
           chainId: 5042002,
         });
       }
-      await waitForTransactionReceipt(config, { hash: vaultTx, chainId: 5042002 });
+      await waitForTransactionReceipt(config, {
+        hash: vaultTx,
+        chainId: 5042002,
+      });
       updateStepStatus("withdraw", "success");
 
       if (!gateway) throw new Error("Gateway config not found");
@@ -1094,7 +1111,9 @@ export default function Deposit() {
       });
 
       if (sepoliaBalance.value === 0n) {
-        throw new Error("Insufficient Sepolia ETH to pay for Minting. Please get ETH from a faucet.");
+        throw new Error(
+          "Insufficient Sepolia ETH to pay for Minting. Please get ETH from a faucet.",
+        );
       }
 
       // Gateway Minter ABI (same as above)
@@ -1119,7 +1138,10 @@ export default function Deposit() {
         chainId: 11155111,
       });
 
-      await waitForTransactionReceipt(config, { hash: mintTx, chainId: 11155111 });
+      await waitForTransactionReceipt(config, {
+        hash: mintTx,
+        chainId: 11155111,
+      });
       updateStepStatus("mint", "success");
 
       toast.success(
@@ -1212,7 +1234,10 @@ export default function Deposit() {
     }
   };
 
-  if (status === "disconnected" || (!address && status !== "reconnecting" && status !== "connecting")) {
+  if (
+    status === "disconnected" ||
+    (!address && status !== "reconnecting" && status !== "connecting")
+  ) {
     return (
       <DefaultLayout>
         <div className="min-h-screen bg-[#0B0C10] flex items-center justify-center">
@@ -1306,9 +1331,9 @@ export default function Deposit() {
                 )}
               </button>
               <div className="glass-panel rounded-2xl p-8 mt-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                   {/* Harvest Button */}
-                  <button
+                  {/* <button
                     onClick={handleHarvest}
                     disabled={loading}
                     className="group relative overflow-hidden bg-gradient-to-r from-green-500/10 to-green-600/10 hover:from-green-500/20 hover:to-green-600/20 border border-green-500/20 hover:border-green-500/40 rounded-xl p-6 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1324,7 +1349,7 @@ export default function Deposit() {
                       </div>
                       <Gift className="w-8 h-8 text-green-400 group-hover:scale-110 transition-transform" />
                     </div>
-                  </button>
+                  </button> */}
 
                   {/* Rebalance Button */}
                   <button
@@ -1335,7 +1360,7 @@ export default function Deposit() {
                     <div className="flex items-center justify-between">
                       <div className="text-left">
                         <h4 className="text-lg font-bold text-white mb-1">
-                          Rebalance
+                          Rebalance (instant)
                         </h4>
                         <p className="text-sm text-gray-400">
                           Update allocation to match risk profile
@@ -1410,19 +1435,21 @@ export default function Deposit() {
               <div className="flex gap-2 p-1 bg-white/5 rounded-lg mb-2">
                 <button
                   onClick={() => handleSwitchNetwork("arc")}
-                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${selectedNetwork === "arc"
-                    ? "bg-[#135bec] text-white shadow-lg"
-                    : "text-gray-400 hover:text-white"
-                    }`}
+                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${
+                    selectedNetwork === "arc"
+                      ? "bg-[#135bec] text-white shadow-lg"
+                      : "text-gray-400 hover:text-white"
+                  }`}
                 >
                   Arc Testnet
                 </button>
                 <button
                   onClick={() => handleSwitchNetwork("sepolia")}
-                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${selectedNetwork === "sepolia"
-                    ? "bg-[#135bec] text-white shadow-lg"
-                    : "text-gray-400 hover:text-white"
-                    }`}
+                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${
+                    selectedNetwork === "sepolia"
+                      ? "bg-[#135bec] text-white shadow-lg"
+                      : "text-gray-400 hover:text-white"
+                  }`}
                 >
                   Sepolia
                 </button>
@@ -1491,10 +1518,11 @@ export default function Deposit() {
                 disabled={
                   loading || !amountInput || parseFloat(amountInput) <= 0
                 }
-                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${activeTab === "deposit"
-                  ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
-                  : "bg-white text-black hover:bg-gray-200"
-                  }`}
+                className={`w-full h-14 text-lg font-bold rounded-xl shadow-[0_0_20px_rgba(19,91,236,0.15)] hover:shadow-[0_0_30px_rgba(19,91,236,0.3)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none ${
+                  activeTab === "deposit"
+                    ? "bg-[#135bec] text-white hover:bg-[#1152d6]"
+                    : "bg-white text-black hover:bg-gray-200"
+                }`}
               >
                 {activeTab === "deposit" ? (
                   <Lock className="w-5 h-5" />
