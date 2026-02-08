@@ -24,7 +24,7 @@ module.exports = {
 
     // MongoDB Configuration
     MONGODB_URI: process.env.MONGODB_URI,
-    MONGODB_DB_NAME: process.env.MONGODB_DB_NAME || 'aura-farmer',
+    MONGODB_DB_NAME: process.env.MONGODB_DB_NAME || 'aura_farm',
 
     // Automation Intervals
     REBALANCE_INTERVAL: parseInt(process.env.REBALANCE_INTERVAL || '600000'), // 10 minutes in ms
