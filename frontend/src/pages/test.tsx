@@ -92,7 +92,7 @@ const Test = () => {
         total += amount;
       }
 
-      const maxFee = 2.01;
+      const maxFee = 2.05;
       const maxTransferable = Math.max(0, total - maxFee);
 
       setGatewayBalances({ total, maxTransferable, balances });
@@ -105,7 +105,7 @@ const Test = () => {
       });
       console.log("=".repeat(50));
       console.log(`Total: ${total.toFixed(6)} USDC`);
-      console.log(`Max Transferable: ${maxTransferable.toFixed(6)} USDC (after 2.01 fee)`);
+      console.log(`Max Transferable: ${maxTransferable.toFixed(6)} USDC (after 2.05 fee)`);
       console.log("=".repeat(50));
 
       toast.success(`Total Gateway Balance: ${total.toFixed(2)} USDC`, { id: toastId });
@@ -153,7 +153,7 @@ const Test = () => {
 
     try {
       setLoading(true);
-      const amount = 2n * 1000000n; // 100 USDC (6 decimals)
+      const amount = 500n * 1000000n; // 100 USDC (6 decimals)
 
       setResult("Step 1/3: Checking allowance...");
 
@@ -268,18 +268,18 @@ const Test = () => {
           {result && (
             <div
               className={`glass-panel rounded-2xl p-6 ${result.includes("Error") || result.includes("❌")
-                  ? "border-red-500/50"
-                  : result.includes("✅")
-                    ? "border-green-500/50"
-                    : "border-blue-500/50"
+                ? "border-red-500/50"
+                : result.includes("✅")
+                  ? "border-green-500/50"
+                  : "border-blue-500/50"
                 }`}
             >
               <p
                 className={`font-mono text-sm ${result.includes("Error") || result.includes("❌")
-                    ? "text-red-400"
-                    : result.includes("✅")
-                      ? "text-green-400"
-                      : "text-blue-400"
+                  ? "text-red-400"
+                  : result.includes("✅")
+                    ? "text-green-400"
+                    : "text-blue-400"
                   }`}
               >
                 {result}

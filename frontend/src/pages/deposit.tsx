@@ -515,7 +515,7 @@ export default function Deposit() {
       // Build the burn intent with ALL addresses as bytes32
       const burnIntent = {
         maxBlockHeight: maxUint256,
-        maxFee: 2_010000n, // Circle Gateway fee: 2.01 USDC (matches reference implementation)
+        maxFee: 2_050000n, // Circle Gateway fee: 2.05 USDC (updated from 2.01)
         spec: {
           version: 1,
           sourceDomain: gateway.domainId,
@@ -631,6 +631,13 @@ export default function Deposit() {
       // Arc USDC Address (from ENV)
       const arcUsdc = USDC;
 
+      // Deduct 2 USDC fee for gateway
+      const fee = parseUnits("2", 6);
+      if (amount <= fee) {
+        throw new Error("Deposit amount must be greater than 2 USDC to cover gateway fees");
+      }
+      const depositAmount = amount - fee;
+
       // Check Allowance
       const vaultAllowance = (await readContract(config, {
         address: arcUsdc,
@@ -640,12 +647,12 @@ export default function Deposit() {
         chainId: 5042002,
       })) as bigint;
 
-      if (vaultAllowance < amount) {
+      if (vaultAllowance < depositAmount) {
         const approveTx = await writeContract(config, {
           address: arcUsdc,
           abi: VIRTUAL_USDC_ABI,
           functionName: "approve",
-          args: [VAULT, amount],
+          args: [VAULT, depositAmount],
           chainId: 5042002,
         });
         await waitForTransactionReceipt(config, { hash: approveTx, chainId: 5042002 });
@@ -656,14 +663,14 @@ export default function Deposit() {
         address: VAULT,
         abi: VAULT_ROUTER_ABI,
         functionName: "deposit",
-        args: [amount],
+        args: [depositAmount],
         chainId: 5042002,
       });
       await waitForTransactionReceipt(config, { hash: depositTx, chainId: 5042002 });
       updateStepStatus("vault", "success");
 
       toast.success(
-        `Success! Deposited ${formatUnits(amount, 6)} vUSDC into Vault`,
+        `Success! Deposited ${formatUnits(depositAmount, 6)} vUSDC into Vault`,
       );
       setAmountInput("");
 
@@ -1016,7 +1023,7 @@ export default function Deposit() {
       // Build the burn intent for Arc -> Sepolia
       const burnIntent = {
         maxBlockHeight: maxUint256,
-        maxFee: 2_010000n, // 2.01 USDC
+        maxFee: 2_050000n, // 2.05 USDC
         spec: {
           version: 1,
           sourceDomain: 26, // Arc
@@ -1191,6 +1198,7 @@ export default function Deposit() {
         address: VAULT,
         abi: VAULT_ROUTER_ABI,
         functionName: "rebalance",
+        args: [address],
         account: address,
         gas: 5_000_000n,
       });

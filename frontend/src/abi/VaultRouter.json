@@ -487,7 +487,13 @@
         "type": "function"
     },
     {
-        "inputs": [],
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "user",
+                "type": "address"
+            }
+        ],
         "name": "rebalance",
         "outputs": [],
         "stateMutability": "nonpayable",
