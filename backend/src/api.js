@@ -19,13 +19,7 @@ const userRebalanceQueue = [];
 // SIGNATURE VERIFICATION
 // ============================================
 
-/**
- * Verify that the user signed the rebalance request
- * @param {string} userAddress - User's wallet address
- * @param {number} vaultId - Vault ID (0=Low, 1=Medium, 2=High)
- * @param {string} signature - User's signature
- * @returns {boolean} - True if signature is valid
- */
+
 function verifyRebalanceSignature(userAddress, vaultId, signature) {
     try {
         // Create the message that should have been signed
@@ -46,14 +40,10 @@ function verifyRebalanceSignature(userAddress, vaultId, signature) {
 // API ENDPOINTS
 // ============================================
 
-/**
- * POST /api/user/rebalance
- * User requests to rebalance their position
- */
 app.post('/api/user/rebalance', async (req, res) => {
     try {
 
-        console.log('Rebalance request received:', req.body);
+        console.log('------Rebalance request received------');
         const { userAddress, vaultId, signature } = req.body;
 
         // Validation
@@ -122,10 +112,7 @@ app.post('/api/user/rebalance', async (req, res) => {
     }
 });
 
-/**
- * GET /api/user/rebalance/status/:address
- * Check status of user's rebalance request
- */
+
 app.get('/api/user/rebalance/status/:address', (req, res) => {
     try {
         const { address } = req.params;
@@ -215,12 +202,7 @@ app.get('/health', (req, res) => {
 
 function startAPIServer() {
     app.listen(PORT, () => {
-        logger.info(`🌐 API Server running on port ${PORT}`);
-        logger.info(`📡 Endpoints:`);
-        logger.info(`   POST /api/user/rebalance - Request rebalance`);
-        logger.info(`   GET  /api/user/rebalance/status/:address - Check status`);
-        logger.info(`   GET  /api/queue/stats - Queue statistics`);
-        logger.info(`   GET  /health - Health check`);
+        logger.info(`🌐 Backend Server running on port ${PORT}`);
     });
 }
 

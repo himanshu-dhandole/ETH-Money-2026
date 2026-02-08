@@ -12,6 +12,7 @@ const { adjustAllocationsTo100 } = require('./utils/allocations');
 const VAULT_ABI = require('./abis/vault.json');
 const ROUTER_ABI = require('./abis/router.json');
 const STRATEGY_ABI = require('./abis/strategy.json');
+const RISKNFT_ABI = require('./abis/riskNft.json');
 
 // API Server for user-initiated rebalances
 const { startAPIServer, userRebalanceQueue } = require('./api');
@@ -36,6 +37,9 @@ class NitroliteKeeperService {
         // Initialize Router
         this.vaultRouter = new ethers.Contract(config.AURA_VAULT_ADDRESS, ROUTER_ABI, this.wallet);
 
+        // Initialize RiskNFT
+        this.riskNFT = new ethers.Contract(config.RISK_NFT_ADDRESS, RISKNFT_ABI, this.wallet);
+
         // Strategy contract cache
         this.strategyContracts = new Map();
 
@@ -58,7 +62,7 @@ class NitroliteKeeperService {
         logger.info(`📡 Vault Contract: ${config.AURA_VAULT_ADDRESS}`);
         logger.info(`⏰ Rebalance Interval: ${config.REBALANCE_INTERVAL / 60000} minutes`);
         logger.info(`⏰ Harvest Interval: ${config.HARVEST_INTERVAL / 60000} minutes`);
-        logger.info(`⏰ User Rebalance Interval: 60 minutes`); // NEW
+        logger.info(`⏰ User Rebalance Interval: 1 minute`); // NEW
     }
 
     // ============================================
@@ -346,7 +350,7 @@ class NitroliteKeeperService {
                     await this.updateTierAllocations(tier, indices, allocations);
                     await this.rebalanceTier(tier);
                 } else {
-                    logger.info('   Rebalance queued for batch settlement via Nitrolite');
+                    logger.info('Off-Chain Executed');
                 }
             }
 
@@ -371,6 +375,29 @@ class NitroliteKeeperService {
         nitroliteService.clearSettlements();
 
         for (const state of states) {
+            if (state.type === 'USER_BUNDLE') {
+                try {
+                    logger.info(` Settling user rebalance bundle from Nitrolite for ${state.users.length} users [Nonce: ${state.nonce}]...`);
+
+                    const tx = await this.wallet.sendTransaction({
+                        to: config.AURA_VAULT_ADDRESS,
+                        data: this.vaultRouter.interface.encodeFunctionData("settleUserBatchRebalance", [
+                            state.users,
+                            state.nonce,
+                            state.signature
+                        ]),
+                        gasLimit: 200000n + (350000n * BigInt(state.users.length))
+                    });
+
+                    logger.info(`On-Chain Executed: ${tx.hash}`);
+                    await tx.wait();
+                    this.userRebalanceCount += state.users.length;
+                } catch (error) {
+                    logger.error(' User bundle settlement failed:', error);
+                }
+                continue;
+            }
+
             let tier;
             try {
                 const { tier: decodedTier, indices, allocations } = nitroliteService.decodeStateData(state.data);
@@ -390,9 +417,8 @@ class NitroliteKeeperService {
                     }
                 );
 
-                logger.info(`   Settlement TX for Tier ${tier}: ${tx.hash}`);
+                logger.info(`On-Chain Executed: ${tx.hash}`);
                 const receipt = await tx.wait();
-                logger.info(` Tier ${tier} settlement confirmed in block ${receipt.blockNumber}`);
 
                 this.rebalanceCount++;
                 this.lastRebalanceTime = Date.now();
@@ -421,31 +447,59 @@ class NitroliteKeeperService {
 
             if (uniqueUsers.length === 0) return;
 
-            // Clear queue immediately after grabbing users
-            userRebalanceQueue.length = 0;
+            // Perform checks on each user
+            const validUsers = [];
+            for (const user of uniqueUsers) {
+                try {
+                    // Check 1: Has Profile?
+                    const hasProfile = await this.riskNFT.hasProfile(user);
+                    if (!hasProfile) {
+                        logger.warn(`Skipping user ${user}: No Risk Profile NFT`);
+                        continue;
+                    }
 
-            logger.info(`   Rebalancing ${uniqueUsers.length} unique user(s) in batch via Router...`);
+                    // Check 2: Has Position?
+                    // Returns: lowShares, medShares, highShares, ..., totalDeposited, ...
+                    const position = await this.vaultRouter.getUserPosition(user);
+                    const totalShares = BigInt(position[0]) + BigInt(position[1]) + BigInt(position[2]);
+
+                    if (totalShares === 0n) {
+                        logger.warn(`Skipping user ${user}: No Vault Shares (Position is empty)`);
+                        continue;
+                    }
+
+
+
+                    validUsers.push(user);
+                } catch (checkErr) {
+                    logger.error(`Error verifying user ${user}:`, checkErr);
+                }
+            }
+
+            if (validUsers.length === 0) {
+                logger.info('   No valid users to rebalance after checks.');
+                return;
+            };
+
+            logger.info(`   Signing rebalance bundle for ${validUsers.length} valid unique user(s) via Nitrolite...`);
 
             try {
-                // Call batchRebalance on VaultRouter
-                // This will call rebalance(user) for each user, which handles withdrawal/deposit based on current profile
+                // Instead of on-chain execution, we sign off-chain
+                const success = await nitroliteService.submitUserBundleRebalance(validUsers);
 
-                // Estimate gas roughly: 200k base + 300k per user (conservative)
-                const estimatedGas = 200000n + (300000n * BigInt(uniqueUsers.length));
-
-                const tx = await this.vaultRouter.batchRebalance(uniqueUsers, {
-                    gasLimit: estimatedGas > 30000000n ? 30000000n : estimatedGas
-                });
-
-                logger.info(`   🔄 Batch Rebalance TX sent: ${tx.hash}`);
-                const receipt = await tx.wait();
-                logger.info(`   ✅ Batch rebalance confirmed in block ${receipt.blockNumber}`);
-
-                this.userRebalanceCount += uniqueUsers.length;
+                if (success) {
+                    // Clear the processed users from global queue
+                    uniqueUsers.forEach(user => {
+                        const index = userRebalanceQueue.findIndex(req => req.user === user);
+                        if (index !== -1) userRebalanceQueue.splice(index, 1);
+                    });
+                    logger.info('   ✅ Bundle signed and queued for next settlement');
+                } else {
+                    // logger.warn('   ⚠️ Nitrolite signing failed, requests remain in queue');
+                }
 
             } catch (txError) {
-                logger.error(`   ❌ Error processing batch rebalance:`, txError);
-                // Optionally re-queue users here if critical
+                logger.error(`   ❌ Error submitting Nitrolite bundle: ${txError.message}`);
             }
 
             this.lastUserRebalanceTime = Date.now();
@@ -490,10 +544,10 @@ class NitroliteKeeperService {
                 if (this.isRunning) this.performHarvestCycle();
             }, config.HARVEST_INTERVAL);
 
-            // NEW: User rebalance cycle every hour
+            // NEW: User rebalance cycle every 1 minute
             setInterval(() => {
                 if (this.isRunning) this.performUserRebalanceCycle();
-            }, 60 * 60 * 1000); // 1 hour
+            }, 60 * 1000); // 1 minute
 
             logger.info('✅ Nitrolite Keeper Service fully operational!');
             logger.info('📡 API Server ready for user rebalance requests');

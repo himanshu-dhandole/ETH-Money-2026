@@ -209,6 +209,72 @@ class NitroliteService {
         }
     }
 
+    async submitUserBundleRebalance(users) {
+        if (!this.nitroliteClient || users.length === 0) return false;
+
+        try {
+            logger.info(`📝 Signing Nitrolite bundle for ${users.length} unique users...`);
+
+            const account = this.nitroliteClient.walletClient.account;
+            const routerAddress = config.AURA_VAULT_ADDRESS;
+
+            // Fetch current nonce for the router
+            const pendingForRouter = this.pendingSettlements.filter(s =>
+                s.type === 'USER_BUNDLE'
+            ).length;
+
+            // We need a way to read nonces from the router. 
+            // Since router inherited NitroliteIntegration/nonces, we use same approach.
+            const contractNonce = await this.nitroliteClient.publicClient.readContract({
+                address: routerAddress,
+                abi: [{ "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "nonces", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }],
+                functionName: 'nonces',
+                args: [account.address]
+            });
+            const nonce = contractNonce + BigInt(pendingForRouter);
+
+            // EIP-712 Signing for the Router bundle
+            const domain = {
+                name: "VaultRouter",
+                version: "1",
+                chainId: Number(config.CHAIN_ID),
+                verifyingContract: routerAddress
+            };
+            const types = {
+                UserBatchRebalance: [
+                    { name: "users", type: "address[]" },
+                    { name: "nonce", type: "uint256" }
+                ]
+            };
+
+            const signature = await this.nitroliteClient.walletClient.signTypedData({
+                account,
+                domain,
+                types,
+                primaryType: 'UserBatchRebalance',
+                message: {
+                    users,
+                    nonce
+                }
+            });
+
+            // Push to pending settlements with a custom type
+            this.pendingSettlements.push({
+                type: 'USER_BUNDLE',
+                users,
+                nonce,
+                signature,
+                routerAddress
+            });
+
+            logger.info(`✅ User bundle signed [Nonce: ${nonce}]`);
+            return true;
+        } catch (error) {
+            logger.warn('⚠️ Nitrolite user bundle signing failed:', error.message || error);
+            return false;
+        }
+    }
+
     decodeStateData(data) {
         const abiCoder = new ethers.AbiCoder();
         const [decodedTier, decodedIndices, decodedAllocations] = abiCoder.decode(

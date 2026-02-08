@@ -19,19 +19,34 @@ const logger = winston.createLogger({
     transports: [
         new winston.transports.Console({
             format: winston.format.combine(
+                winston.format((info) => {
+                    const msg = info.message ? info.message.toLowerCase() : '';
+                    const level = info.level ? info.level.toLowerCase() : '';
+
+                    // Filter logic: Only show TX hashes, API requests, Errors, or Chain execution logs
+                    const isTx = msg.includes('tx') || msg.includes('hash');
+                    const isApi = msg.includes('request') || msg.includes('api');
+                    const isError = level.includes('error');
+                    const isChain = msg.includes('chain') || msg.includes('executed');
+
+                    if (isTx || isApi || isError || isChain) {
+                        return info;
+                    }
+                    return false; // Skip this log
+                })(),
                 winston.format.colorize(),
                 winston.format.printf(({ level, message, timestamp }) => {
                     return `${timestamp} ${level}: ${message}`;
                 })
             )
         }),
-        new winston.transports.File({ 
-            filename: 'logs/error.log', 
+        new winston.transports.File({
+            filename: 'logs/error.log',
             level: 'error',
             maxsize: 5242880, // 5MB
             maxFiles: 5
         }),
-        new winston.transports.File({ 
+        new winston.transports.File({
             filename: 'logs/combined.log',
             maxsize: 5242880, // 5MB
             maxFiles: 5

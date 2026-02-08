@@ -1,0 +1,50 @@
+[
+    {
+        "inputs": [
+            {
+                "name": "user",
+                "type": "address"
+            }
+        ],
+        "name": "hasProfile",
+        "outputs": [
+            {
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "user",
+                "type": "address"
+            }
+        ],
+        "name": "getRiskProfile",
+        "outputs": [
+            {
+                "components": [
+                    {
+                        "name": "lowPct",
+                        "type": "uint8"
+                    },
+                    {
+                        "name": "medPct",
+                        "type": "uint8"
+                    },
+                    {
+                        "name": "highPct",
+                        "type": "uint8"
+                    }
+                ],
+                "name": "",
+                "type": "tuple"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]

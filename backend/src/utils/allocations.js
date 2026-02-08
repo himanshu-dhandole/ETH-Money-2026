@@ -1,11 +1,6 @@
 // allocations.js - Allocation management utilities
 const logger = require('../logger');
 
-/**
- * @notice Ensures rounded integer allocations sum to exactly 100
- * @param allocations Array of floating point percentages
- * @returns Array of integers summing to 100
- */
 function adjustAllocationsTo100(allocations) {
     if (!allocations || allocations.length === 0) return [];
 
